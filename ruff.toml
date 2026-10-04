@@ -22,4 +22,4 @@ ignore = [
 "tests/*" = ["S101"]  # assert consentito nei test
 
 [lint.isort]
-known-first-party = ["app", "config", "converters", "leggi", "synthesis", "tts_engine"]
+known-first-party = ["app", "config", "converters", "reader", "synthesis", "tts_engine"]

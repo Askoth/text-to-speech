@@ -122,7 +122,7 @@ class TestConvertText:
 
 
 # ===========================================================================
-# Tests — .md converter (delegates to leggi)
+# Tests — .md converter (delegates to reader)
 # ===========================================================================
 
 

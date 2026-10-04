@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-leggi.py
+reader.py
 Reads text files aloud in Italian using Piper TTS.
 Supports: Markdown, TXT, EPUB, DOCX, HTML, PDF.
 
 Usage:
-    python leggi.py file.md
-    python leggi.py document.pdf --voice giuseppe
-    python leggi.py book.epub --voice paola --save output.mp3
+    python reader.py file.md
+    python reader.py document.pdf --voice giuseppe
+    python reader.py book.epub --voice paola --save output.mp3
 
 Available voices:
     paola     - Piper TTS, female, offline

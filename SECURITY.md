@@ -69,7 +69,7 @@ finally:
 - **Guaranteed cleanup** — `finally` block ensures deletion even on errors
 - **No public directory exposure** — temp files live in `/tmp`, not in static/
 
-The CLI ([`leggi.py`](leggi.py)) applies the same pattern for playback temp files.
+The CLI ([`reader.py`](reader.py)) applies the same pattern for playback temp files.
 
 ## Input Parameter Validation
 

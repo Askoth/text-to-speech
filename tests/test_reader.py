@@ -1,6 +1,6 @@
 """
-tests/test_leggi.py
-Tests for the functions in leggi.py and related modules.
+tests/test_reader.py
+Tests for the functions in reader.py and related modules.
 
 Covers: voice configuration constants, Markdown converter (edge cases),
 download_piper_voice (synthesis), concat_wav, show_paragraph,
@@ -321,7 +321,7 @@ class TestConcatWav:
 
     def test_concatenates_two_wav(self):
         """Two concatenated WAVs must have the sum of their frames."""
-        from src.leggi import concat_wav
+        from src.reader import concat_wav
 
         # Arrange
         sr = 22050
@@ -339,7 +339,7 @@ class TestConcatWav:
 
     def test_concatenates_empty_list(self):
         """An empty list must produce a valid WAV with 0 frames."""
-        from src.leggi import concat_wav
+        from src.reader import concat_wav
 
         # Arrange & Act
         result = concat_wav([], 22050)
@@ -350,7 +350,7 @@ class TestConcatWav:
 
     def test_concatenates_single_wav(self):
         """A single WAV must return a WAV with the same frames."""
-        from src.leggi import concat_wav
+        from src.reader import concat_wav
 
         # Arrange
         sr = 16000
@@ -418,12 +418,12 @@ class TestFindPlayer:
 
     def test_linux_wav_with_aplay(self):
         """On Linux with aplay available, must use aplay for WAV."""
-        from src.leggi import _find_player
+        from src.reader import _find_player
 
         # Arrange & Act
         with (
-            patch("src.leggi.PLATFORM", "linux"),
-            patch("src.leggi.shutil.which", return_value="/usr/bin/aplay"),
+            patch("src.reader.PLATFORM", "linux"),
+            patch("src.reader.shutil.which", return_value="/usr/bin/aplay"),
         ):
             cmd, stdin = _find_player("wav")
 
@@ -433,12 +433,12 @@ class TestFindPlayer:
 
     def test_linux_mp3_with_ffplay(self):
         """On Linux must use ffplay for MP3."""
-        from src.leggi import _find_player
+        from src.reader import _find_player
 
         # Arrange & Act
         with (
-            patch("src.leggi.PLATFORM", "linux"),
-            patch("src.leggi.shutil.which", return_value="/usr/bin/ffplay"),
+            patch("src.reader.PLATFORM", "linux"),
+            patch("src.reader.shutil.which", return_value="/usr/bin/ffplay"),
         ):
             cmd, stdin = _find_player("mp3")
 
@@ -448,12 +448,12 @@ class TestFindPlayer:
 
     def test_darwin_with_afplay(self):
         """On macOS with afplay available, must use afplay."""
-        from src.leggi import _find_player
+        from src.reader import _find_player
 
         # Arrange & Act
         with (
-            patch("src.leggi.PLATFORM", "darwin"),
-            patch("src.leggi.shutil.which", return_value="/usr/bin/afplay"),
+            patch("src.reader.PLATFORM", "darwin"),
+            patch("src.reader.shutil.which", return_value="/usr/bin/afplay"),
         ):
             cmd, stdin = _find_player("mp3")
 
@@ -463,7 +463,7 @@ class TestFindPlayer:
 
     def test_darwin_fallback_ffplay(self):
         """On macOS without afplay, must use ffplay as a fallback."""
-        from src.leggi import _find_player
+        from src.reader import _find_player
 
         # Arrange
         def which_side_effect(name):
@@ -471,8 +471,8 @@ class TestFindPlayer:
 
         # Act
         with (
-            patch("src.leggi.PLATFORM", "darwin"),
-            patch("src.leggi.shutil.which", side_effect=which_side_effect),
+            patch("src.reader.PLATFORM", "darwin"),
+            patch("src.reader.shutil.which", side_effect=which_side_effect),
         ):
             cmd, stdin = _find_player("mp3")
 
@@ -482,12 +482,12 @@ class TestFindPlayer:
 
     def test_win32_with_ffplay(self):
         """On Windows with ffplay, must use ffplay."""
-        from src.leggi import _find_player
+        from src.reader import _find_player
 
         # Arrange & Act
         with (
-            patch("src.leggi.PLATFORM", "win32"),
-            patch("src.leggi.shutil.which", return_value="C:\\ffplay.exe"),
+            patch("src.reader.PLATFORM", "win32"),
+            patch("src.reader.shutil.which", return_value="C:\\ffplay.exe"),
         ):
             cmd, stdin = _find_player("wav")
 
@@ -497,12 +497,12 @@ class TestFindPlayer:
 
     def test_no_player_available(self):
         """Without a player, must return an empty list."""
-        from src.leggi import _find_player
+        from src.reader import _find_player
 
         # Arrange & Act
         with (
-            patch("src.leggi.PLATFORM", "linux"),
-            patch("src.leggi.shutil.which", return_value=None),
+            patch("src.reader.PLATFORM", "linux"),
+            patch("src.reader.shutil.which", return_value=None),
         ):
             cmd, stdin = _find_player("wav")
 
@@ -516,12 +516,12 @@ class TestHasPlayer:
 
     def test_has_player_true(self):
         """Must return True if a player is available."""
-        from src.leggi import _has_player
+        from src.reader import _has_player
 
         # Arrange & Act
         with (
-            patch("src.leggi.PLATFORM", "linux"),
-            patch("src.leggi.shutil.which", return_value="/usr/bin/aplay"),
+            patch("src.reader.PLATFORM", "linux"),
+            patch("src.reader.shutil.which", return_value="/usr/bin/aplay"),
         ):
             result = _has_player("wav")
 
@@ -530,12 +530,12 @@ class TestHasPlayer:
 
     def test_has_player_false(self):
         """Must return False if no player is available."""
-        from src.leggi import _has_player
+        from src.reader import _has_player
 
         # Arrange & Act
         with (
-            patch("src.leggi.PLATFORM", "win32"),
-            patch("src.leggi.shutil.which", return_value=None),
+            patch("src.reader.PLATFORM", "win32"),
+            patch("src.reader.shutil.which", return_value=None),
         ):
             result = _has_player("mp3")
 
@@ -752,7 +752,7 @@ class TestShowParagraph:
 
     def test_does_not_print_if_not_visible(self, capsys):
         """If visible=False, must not print anything."""
-        from src.leggi import show_paragraph
+        from src.reader import show_paragraph
 
         # Act
         show_paragraph(1, 10, "Testo del paragrafo", visible=False)
@@ -763,7 +763,7 @@ class TestShowParagraph:
 
     def test_prints_if_visible(self, capsys):
         """If visible=True, must print the counter and the text."""
-        from src.leggi import show_paragraph
+        from src.reader import show_paragraph
 
         # Act
         show_paragraph(3, 10, "Contenuto paragrafo", visible=True)
@@ -784,7 +784,7 @@ class TestCalcOutputPath:
 
     def test_correct_output_structure(self):
         """Must return base_dir, full MP3 path and paragraphs directory."""
-        from src.leggi import calc_output_path
+        from src.reader import calc_output_path
 
         # Act
         base_dir, mp3_path, paragraphs_dir = calc_output_path(Path("data/input/documento.md"))
@@ -797,7 +797,7 @@ class TestCalcOutputPath:
 
     def test_mp3_path_inside_full(self):
         """The MP3 file must be in base_dir/full/."""
-        from src.leggi import calc_output_path
+        from src.reader import calc_output_path
 
         _, mp3_path, _ = calc_output_path(Path("test.epub"))
 
@@ -807,7 +807,7 @@ class TestCalcOutputPath:
 
     def test_paragraphs_folder_inside_base(self):
         """The paragraphs folder must be in base_dir/paragraphs/."""
-        from src.leggi import calc_output_path
+        from src.reader import calc_output_path
 
         base_dir, _, paragraphs_dir = calc_output_path(Path("libro.pdf"))
 
@@ -816,7 +816,7 @@ class TestCalcOutputPath:
 
     def test_extension_does_not_affect_stem(self):
         """The stem must be the file name without extension."""
-        from src.leggi import calc_output_path
+        from src.reader import calc_output_path
 
         for ext in [".md", ".txt", ".epub", ".docx", ".pdf"]:
             _, mp3_path, _ = calc_output_path(Path(f"mio_file{ext}"))
@@ -824,7 +824,7 @@ class TestCalcOutputPath:
 
     def test_file_with_complex_path(self):
         """Must use only the stem, ignoring parent directories."""
-        from src.leggi import calc_output_path
+        from src.reader import calc_output_path
 
         base_dir, _, _ = calc_output_path(Path("/home/user/documenti/relazione.md"))
 
@@ -851,7 +851,7 @@ class TestReadWithPiper:
 
     def test_exits_if_piper_not_installed(self):
         """Must exit with sys.exit(1) if piper is not importable."""
-        from src.leggi import read_with_piper
+        from src.reader import read_with_piper
 
         with (
             patch.dict("sys.modules", {"piper": None}),
@@ -861,19 +861,19 @@ class TestReadWithPiper:
 
     def test_exits_if_no_player_and_no_save(self):
         """Must exit if there is no audio player and nothing is saved."""
-        from src.leggi import read_with_piper
+        from src.reader import read_with_piper
 
         mock_piper_module = MagicMock()
         with (
             patch.dict("sys.modules", {"piper": mock_piper_module}),
-            patch("src.leggi._has_player", return_value=False),
+            patch("src.reader._has_player", return_value=False),
             pytest.raises(SystemExit, match="1"),
         ):
             read_with_piper("Testo di prova", save_path=None)
 
     def test_synthesizes_and_plays_paragraphs(self):
         """Must synthesize and play every paragraph."""
-        from src.leggi import read_with_piper
+        from src.reader import read_with_piper
 
         wav = self._make_wav_bytes()
         mock_piper_module = MagicMock()
@@ -883,10 +883,10 @@ class TestReadWithPiper:
 
         with (
             patch.dict("sys.modules", {"piper": mock_piper_module}),
-            patch("src.leggi._has_player", return_value=True),
-            patch("src.leggi.synthesize_piper", return_value=wav) as mock_synth,
-            patch("src.leggi.play_audio") as mock_play,
-            patch("src.leggi.show_paragraph"),
+            patch("src.reader._has_player", return_value=True),
+            patch("src.reader.synthesize_piper", return_value=wav) as mock_synth,
+            patch("src.reader.play_audio") as mock_play,
+            patch("src.reader.show_paragraph"),
         ):
             read_with_piper("Primo paragrafo\n\nSecondo paragrafo")
 
@@ -895,7 +895,7 @@ class TestReadWithPiper:
 
     def test_saves_mp3_without_playing(self, tmp_path):
         """With save_path and no player, must save without playing."""
-        from src.leggi import read_with_piper
+        from src.reader import read_with_piper
 
         wav = self._make_wav_bytes()
         mock_piper_module = MagicMock()
@@ -908,13 +908,13 @@ class TestReadWithPiper:
 
         with (
             patch.dict("sys.modules", {"piper": mock_piper_module}),
-            patch("src.leggi._has_player", return_value=False),
+            patch("src.reader._has_player", return_value=False),
             patch("shutil.which", return_value="/usr/bin/ffmpeg"),
-            patch("src.leggi.synthesize_piper", return_value=wav),
-            patch("src.leggi.wav_to_mp3") as mock_mp3,
-            patch("src.leggi.concat_wav", return_value=wav),
-            patch("src.leggi.play_audio") as mock_play,
-            patch("src.leggi.show_paragraph"),
+            patch("src.reader.synthesize_piper", return_value=wav),
+            patch("src.reader.wav_to_mp3") as mock_mp3,
+            patch("src.reader.concat_wav", return_value=wav),
+            patch("src.reader.play_audio") as mock_play,
+            patch("src.reader.show_paragraph"),
         ):
             read_with_piper("Un paragrafo", save_path=save, paragraphs_dir=paragraphs_dir)
 
@@ -934,55 +934,55 @@ class TestMain:
 
     def test_file_not_found_exits(self):
         """Must exit if the file does not exist."""
-        from src.leggi import main
+        from src.reader import main
 
         with (
-            patch("sys.argv", ["leggi.py", "/non_esiste_12345.md"]),
-            patch("src.leggi.check_prerequisites", return_value=[]),
+            patch("sys.argv", ["reader.py", "/non_esiste_12345.md"]),
+            patch("src.reader.check_prerequisites", return_value=[]),
             pytest.raises(SystemExit, match="1"),
         ):
             main()
 
     def test_empty_file_exits(self, tmp_path):
         """Must exit if the file is empty after conversion."""
-        from src.leggi import main
+        from src.reader import main
 
         empty = tmp_path / "vuoto.txt"
         empty.write_text("")
 
         with (
-            patch("sys.argv", ["leggi.py", str(empty)]),
-            patch("src.leggi.check_prerequisites", return_value=[]),
+            patch("sys.argv", ["reader.py", str(empty)]),
+            patch("src.reader.check_prerequisites", return_value=[]),
             pytest.raises(SystemExit, match="1"),
         ):
             main()
 
     def test_prerequisites_failed_exits(self, tmp_path):
         """Must exit if check_prerequisites returns errors."""
-        from src.leggi import main
+        from src.reader import main
 
         f = tmp_path / "test.txt"
         f.write_text("contenuto")
 
         with (
-            patch("sys.argv", ["leggi.py", str(f)]),
-            patch("src.leggi.check_prerequisites", return_value=["ffmpeg"]),
+            patch("sys.argv", ["reader.py", str(f)]),
+            patch("src.reader.check_prerequisites", return_value=["ffmpeg"]),
             pytest.raises(SystemExit, match="1"),
         ):
             main()
 
     def test_voice_piper_calls_read_with_piper(self, tmp_path):
         """With --voice paola must call download_piper_voice + read_with_piper."""
-        from src.leggi import main
+        from src.reader import main
 
         f = tmp_path / "test.txt"
         f.write_text("Contenuto test")
 
         with (
-            patch("sys.argv", ["leggi.py", str(f), "--voice", "paola"]),
-            patch("src.leggi.check_prerequisites", return_value=[]),
-            patch("src.leggi.download_piper_voice") as mock_download,
-            patch("src.leggi.read_with_piper") as mock_read,
+            patch("sys.argv", ["reader.py", str(f), "--voice", "paola"]),
+            patch("src.reader.check_prerequisites", return_value=[]),
+            patch("src.reader.download_piper_voice") as mock_download,
+            patch("src.reader.read_with_piper") as mock_read,
         ):
             main()
 
@@ -1000,13 +1000,13 @@ class TestWavToMp3:
 
     def test_calls_ffmpeg_with_correct_arguments(self, tmp_path):
         """Must call subprocess.run with the correct ffmpeg flags."""
-        from src.leggi import wav_to_mp3
+        from src.reader import wav_to_mp3
 
         # Arrange
         output = tmp_path / "output.mp3"
         audio = b"\x00" * 100
 
-        with patch("src.leggi.subprocess.run") as mock_run:
+        with patch("src.reader.subprocess.run") as mock_run:
             # Act
             wav_to_mp3(audio, output)
 
@@ -1020,13 +1020,13 @@ class TestWavToMp3:
 
     def test_passes_wav_bytes_as_stdin(self, tmp_path):
         """The WAV bytes must be passed as stdin to ffmpeg."""
-        from src.leggi import wav_to_mp3
+        from src.reader import wav_to_mp3
 
         # Arrange
         output = tmp_path / "output.mp3"
         audio = b"\xde\xad\xbe\xef"
 
-        with patch("src.leggi.subprocess.run") as mock_run:
+        with patch("src.reader.subprocess.run") as mock_run:
             # Act
             wav_to_mp3(audio, output)
 
@@ -1037,12 +1037,12 @@ class TestWavToMp3:
 
     def test_timeout_set_to_30(self, tmp_path):
         """Must set timeout=30 to avoid infinite blocking."""
-        from src.leggi import wav_to_mp3
+        from src.reader import wav_to_mp3
 
         # Arrange
         output = tmp_path / "output.mp3"
 
-        with patch("src.leggi.subprocess.run") as mock_run:
+        with patch("src.reader.subprocess.run") as mock_run:
             # Act
             wav_to_mp3(b"", output)
 
@@ -1060,13 +1060,13 @@ class TestConcatMp3:
 
     def test_calls_ffmpeg_with_concat_filter(self, tmp_path):
         """Must use ffmpeg's concat filter."""
-        from src.leggi import concat_mp3
+        from src.reader import concat_mp3
 
         # Arrange
         output = tmp_path / "completo.mp3"
         fragments = [b"\x01" * 50, b"\x02" * 50]
 
-        with patch("src.leggi.subprocess.run") as mock_run:
+        with patch("src.reader.subprocess.run") as mock_run:
             # Act
             concat_mp3(fragments, output)
 
@@ -1078,13 +1078,13 @@ class TestConcatMp3:
 
     def test_joins_all_fragments_as_stdin(self, tmp_path):
         """The bytes of all fragments must be concatenated and passed as stdin."""
-        from src.leggi import concat_mp3
+        from src.reader import concat_mp3
 
         # Arrange
         output = tmp_path / "completo.mp3"
         fragments = [b"AAA", b"BBB", b"CCC"]
 
-        with patch("src.leggi.subprocess.run") as mock_run:
+        with patch("src.reader.subprocess.run") as mock_run:
             # Act
             concat_mp3(fragments, output)
 
@@ -1105,12 +1105,12 @@ class TestPlayAudio:
 
     def test_no_player_does_not_call_subprocess(self):
         """Without a player available must not call subprocess.run."""
-        from src.leggi import play_audio
+        from src.reader import play_audio
 
         # Arrange
         with (
-            patch("src.leggi._find_player", return_value=([], False)),
-            patch("src.leggi.subprocess.run") as mock_run,
+            patch("src.reader._find_player", return_value=([], False)),
+            patch("src.reader.subprocess.run") as mock_run,
         ):
             # Act
             play_audio(b"\x00" * 10, "mp3")
@@ -1120,15 +1120,15 @@ class TestPlayAudio:
 
     def test_stdin_path_passes_bytes_directly(self):
         """With a stdin-compatible player, must pass the bytes as stdin."""
-        from src.leggi import play_audio
+        from src.reader import play_audio
 
         # Arrange
         audio = b"\xab" * 20
         cmd = ["ffplay", "-nodisp", "-autoexit", "-loglevel", "error", "-"]
 
         with (
-            patch("src.leggi._find_player", return_value=(cmd, True)),
-            patch("src.leggi.subprocess.run") as mock_run,
+            patch("src.reader._find_player", return_value=(cmd, True)),
+            patch("src.reader.subprocess.run") as mock_run,
         ):
             # Act
             play_audio(audio, "mp3")
@@ -1140,15 +1140,15 @@ class TestPlayAudio:
 
     def test_tempfile_path_launches_player_with_file_path(self):
         """With afplay (no stdin), the command must include the temp file path."""
-        from src.leggi import play_audio
+        from src.reader import play_audio
 
         # Arrange
         audio = b"\xff" * 30
         cmd = ["afplay"]
 
         with (
-            patch("src.leggi._find_player", return_value=(cmd, False)),
-            patch("src.leggi.subprocess.run") as mock_run,
+            patch("src.reader._find_player", return_value=(cmd, False)),
+            patch("src.reader.subprocess.run") as mock_run,
         ):
             # Act
             play_audio(audio, "mp3")
@@ -1161,7 +1161,7 @@ class TestPlayAudio:
 
     def test_tempfile_removed_after_playback(self, tmp_path):
         """The temporary file must be removed after playback."""
-        from src.leggi import play_audio
+        from src.reader import play_audio
 
         # Arrange — create a real temporary file to verify deletion
         fake_tmp = tmp_path / "audio_test.mp3"
@@ -1182,8 +1182,8 @@ class TestPlayAudio:
 
         # tempfile is imported inline in play_audio: patch at the module level
         with (
-            patch("src.leggi._find_player", return_value=(["afplay"], False)),
-            patch("src.leggi.subprocess.run"),
+            patch("src.reader._find_player", return_value=(["afplay"], False)),
+            patch("src.reader.subprocess.run"),
             patch("tempfile.NamedTemporaryFile", return_value=FakeTmp()),
         ):
             # Act
@@ -1212,7 +1212,7 @@ class TestReadWithPiperExtra:
 
     def test_exits_if_save_path_and_ffmpeg_not_found(self, tmp_path):
         """Must exit with sys.exit(1) if save_path is given but ffmpeg is missing."""
-        from src.leggi import read_with_piper
+        from src.reader import read_with_piper
 
         # Arrange
         mock_piper_module = MagicMock()
@@ -1220,8 +1220,8 @@ class TestReadWithPiperExtra:
 
         with (
             patch.dict("sys.modules", {"piper": mock_piper_module}),
-            patch("src.leggi._has_player", return_value=True),
-            patch("src.leggi.shutil.which", return_value=None),
+            patch("src.reader._has_player", return_value=True),
+            patch("src.reader.shutil.which", return_value=None),
             pytest.raises(SystemExit, match="1"),
         ):
             # Act
@@ -1229,7 +1229,7 @@ class TestReadWithPiperExtra:
 
     def test_keyboard_interrupt_handled_gracefully(self):
         """A KeyboardInterrupt during reading must terminate without propagating."""
-        from src.leggi import read_with_piper
+        from src.reader import read_with_piper
 
         # Arrange
         mock_piper_module = MagicMock()
@@ -1251,10 +1251,10 @@ class TestReadWithPiperExtra:
 
         with (
             patch.dict("sys.modules", {"piper": mock_piper_module}),
-            patch("src.leggi._has_player", return_value=True),
-            patch("src.leggi.synthesize_piper", side_effect=SideEffect(2)),
-            patch("src.leggi.play_audio"),
-            patch("src.leggi.show_paragraph"),
+            patch("src.reader._has_player", return_value=True),
+            patch("src.reader.synthesize_piper", side_effect=SideEffect(2)),
+            patch("src.reader.play_audio"),
+            patch("src.reader.show_paragraph"),
         ):
             # Act — must not raise
             read_with_piper("Paragrafo uno\n\nParagrafo due")
@@ -1270,7 +1270,7 @@ class TestPlayAsync:
 
     def test_stdin_path_uses_create_subprocess_exec_with_pipe(self):
         """For stdin-compatible players it must open the process with stdin=PIPE."""
-        from src.leggi import _play_async
+        from src.reader import _play_async
 
         # Arrange
         cmd = ["ffplay", "-nodisp", "-autoexit", "-loglevel", "error", "-"]
@@ -1280,9 +1280,9 @@ class TestPlayAsync:
         mock_proc.communicate = AsyncMock(return_value=(b"", b""))
 
         with (
-            patch("src.leggi._find_player", return_value=(cmd, True)),
+            patch("src.reader._find_player", return_value=(cmd, True)),
             patch(
-                "src.leggi.asyncio.create_subprocess_exec",
+                "src.reader.asyncio.create_subprocess_exec",
                 return_value=mock_proc,
             ) as mock_exec,
         ):
@@ -1295,7 +1295,7 @@ class TestPlayAsync:
 
     def test_stdin_path_passes_bytes_to_communicate(self):
         """The MP3 bytes must be passed to proc.communicate(input=...)."""
-        from src.leggi import _play_async
+        from src.reader import _play_async
 
         # Arrange
         cmd = ["ffplay", "-nodisp", "-autoexit", "-loglevel", "error", "-"]
@@ -1305,8 +1305,8 @@ class TestPlayAsync:
         mock_proc.communicate = AsyncMock(return_value=(b"", b""))
 
         with (
-            patch("src.leggi._find_player", return_value=(cmd, True)),
-            patch("src.leggi.asyncio.create_subprocess_exec", return_value=mock_proc),
+            patch("src.reader._find_player", return_value=(cmd, True)),
+            patch("src.reader.asyncio.create_subprocess_exec", return_value=mock_proc),
         ):
             # Act
             asyncio.run(_play_async(mp3))
@@ -1316,12 +1316,12 @@ class TestPlayAsync:
 
     def test_no_player_returns_without_subprocess(self):
         """Without a player available it must return without creating processes."""
-        from src.leggi import _play_async
+        from src.reader import _play_async
 
         # Arrange
         with (
-            patch("src.leggi._find_player", return_value=([], False)),
-            patch("src.leggi.asyncio.create_subprocess_exec") as mock_exec,
+            patch("src.reader._find_player", return_value=([], False)),
+            patch("src.reader.asyncio.create_subprocess_exec") as mock_exec,
         ):
             # Act
             asyncio.run(_play_async(b"\x00"))
@@ -1331,7 +1331,7 @@ class TestPlayAsync:
 
     def test_tempfile_path_uses_proc_wait(self):
         """With afplay (no stdin) it must call proc.wait(), not proc.communicate()."""
-        from src.leggi import _play_async
+        from src.reader import _play_async
 
         # Arrange
         cmd = ["afplay"]
@@ -1341,9 +1341,9 @@ class TestPlayAsync:
         mock_proc.wait = AsyncMock(return_value=0)
 
         with (
-            patch("src.leggi._find_player", return_value=(cmd, False)),
+            patch("src.reader._find_player", return_value=(cmd, False)),
             patch(
-                "src.leggi.asyncio.create_subprocess_exec",
+                "src.reader.asyncio.create_subprocess_exec",
                 return_value=mock_proc,
             ) as mock_exec,
         ):
@@ -1360,7 +1360,7 @@ class TestPlayAsync:
 
     def test_tempfile_removed_after_playback(self, tmp_path):
         """The temporary file must be removed after playback."""
-        from src.leggi import _play_async
+        from src.reader import _play_async
 
         # Arrange
         cmd = ["afplay"]
@@ -1385,8 +1385,8 @@ class TestPlayAsync:
 
         # tempfile is imported inline in _play_async: patch in the global module
         with (
-            patch("src.leggi._find_player", return_value=(cmd, False)),
-            patch("src.leggi.asyncio.create_subprocess_exec", return_value=mock_proc),
+            patch("src.reader._find_player", return_value=(cmd, False)),
+            patch("src.reader.asyncio.create_subprocess_exec", return_value=mock_proc),
             patch("tempfile.NamedTemporaryFile", return_value=FakeTmp()),
         ):
             # Act

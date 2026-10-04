@@ -1,6 +1,6 @@
 """
 tests/test_app.py
-Test suite for TTS Reader: leggi, app (Flask), tts_engine.
+Test suite for TTS Reader: reader, app (Flask), tts_engine.
 
 External dependencies (piper, ffmpeg) are always mocked
 to guarantee isolated and fast tests.
@@ -16,7 +16,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 # ===========================================================================
-# Tests — leggi.py
+# Tests — reader.py
 # ===========================================================================
 
 
