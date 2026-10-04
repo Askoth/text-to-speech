@@ -2,7 +2,7 @@
 tests/test_i18n.py
 Test suite per il sistema di internazionalizzazione (i18n).
 
-Copre: translations.py (get_lang, tr, get_styles_meta)
+Copre: translations.py (get_lang, tr)
        e gli endpoint API con parametro ?lang=.
 """
 
@@ -12,7 +12,6 @@ from src.translations import (
     DEFAULT_LANG,
     TRANSLATIONS,
     get_lang,
-    get_styles_meta,
     tr,
 )
 
@@ -203,97 +202,12 @@ class TestTr:
 
 
 # ===========================================================================
-# Test — translations.get_styles_meta()
-# ===========================================================================
-
-
-class TestGetStylesMeta:
-    """Metadati stili tradotti per lingua."""
-
-    def test_stili_it_hanno_label_e_description(self):
-        """Ogni stile in italiano deve avere id, label, description."""
-        # Act
-        stili = get_styles_meta("it")
-
-        # Assert
-        assert len(stili) == 4
-        for s in stili:
-            assert "id" in s
-            assert "label" in s
-            assert "description" in s
-            assert s["label"]  # non vuoto
-            assert s["description"]  # non vuoto
-
-    def test_stili_en_hanno_label_e_description(self):
-        """Ogni stile in inglese deve avere id, label, description."""
-        # Act
-        stili = get_styles_meta("en")
-
-        # Assert
-        assert len(stili) == 4
-        for s in stili:
-            assert "id" in s
-            assert "label" in s
-            assert "description" in s
-
-    def test_stili_it_diversi_da_en(self):
-        """Le label IT e EN devono essere diverse (tradotte)."""
-        # Act
-        stili_it = {s["id"]: s["label"] for s in get_styles_meta("it")}
-        stili_en = {s["id"]: s["label"] for s in get_styles_meta("en")}
-
-        # Assert — almeno uno stile deve avere label diversa
-        differenze = [sid for sid in stili_it if stili_it[sid] != stili_en[sid]]
-        assert len(differenze) > 0
-
-    def test_stili_ids_consistenti(self):
-        """Gli ID degli stili devono essere gli stessi in entrambe le lingue."""
-        # Act
-        ids_it = {s["id"] for s in get_styles_meta("it")}
-        ids_en = {s["id"] for s in get_styles_meta("en")}
-
-        # Assert
-        assert ids_it == ids_en
-
-    def test_stili_lingua_non_supportata_usa_default(self):
-        """get_styles_meta con lingua non supportata deve usare il default."""
-        # Act
-        stili_fr = get_styles_meta("fr")
-        stili_default = get_styles_meta(DEFAULT_LANG)
-
-        # Assert
-        assert stili_fr == stili_default
-
-
-# ===========================================================================
 # Test — Endpoint API con parametro ?lang=
 # ===========================================================================
 
 
 class TestEndpointI18n:
     """Verifica che gli endpoint restituiscano messaggi nella lingua richiesta."""
-
-    def test_voices_stili_in_italiano(self, client):
-        """GET /api/voices?lang=it deve restituire stili con label italiane."""
-        # Act
-        response = client.get("/api/voices?lang=it")
-        data = response.get_json()
-
-        # Assert
-        labels = {s["id"]: s["label"] for s in data["styles"]}
-        assert labels["neutro"] == "Neutro"
-        assert labels["audiolibro"] == "Audiolibro"
-
-    def test_voices_stili_in_inglese(self, client):
-        """GET /api/voices?lang=en deve restituire stili con label inglesi."""
-        # Act
-        response = client.get("/api/voices?lang=en")
-        data = response.get_json()
-
-        # Assert
-        labels = {s["id"]: s["label"] for s in data["styles"]}
-        assert labels["neutro"] == "Neutral"
-        assert labels["audiolibro"] == "Audiobook"
 
     def test_load_errore_in_italiano(self, client):
         """POST /api/load?lang=it senza file deve restituire errore in italiano."""
@@ -340,7 +254,7 @@ class TestEndpointI18n:
         # Act
         response = client.post(
             "/api/save?lang=en",
-            data='{"voice": "giuseppe"}',
+            data='{"voice": "paola"}',
             content_type="application/json",
         )
 

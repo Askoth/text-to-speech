@@ -105,7 +105,7 @@ class TestTTSEngineLoadFile:
         """Caricare un nuovo file deve svuotare la cache."""
         # Arrange — carica primo testo e popola cache manualmente
         engine.load_text("Vecchio testo.", "old.md")
-        engine._put_cache("giuseppe:neutro:0", b"fake_mp3")
+        engine._put_cache("paola:0", b"fake_mp3")
         assert len(engine._cache) == 1
 
         # Act — carica nuovo testo
@@ -164,17 +164,17 @@ class TestTTSEngineCache:
     def test_cache_move_to_end_su_accesso(self, engine_con_testo):
         """Accedere a un elemento in cache deve spostarlo in fondo (MRU)."""
         # Arrange — popola cache con 3 elementi
-        engine_con_testo._put_cache("giuseppe:neutro:0", b"mp3_0")
-        engine_con_testo._put_cache("giuseppe:neutro:1", b"mp3_1")
-        engine_con_testo._put_cache("giuseppe:neutro:2", b"mp3_2")
+        engine_con_testo._put_cache("paola:0", b"mp3_0")
+        engine_con_testo._put_cache("paola:1", b"mp3_1")
+        engine_con_testo._put_cache("paola:2", b"mp3_2")
 
         # Act — accedi al primo elemento (dovrebbe spostarlo in fondo)
         with patch.object(engine_con_testo, "_synthesize", return_value=b"mp3_0"):
-            engine_con_testo.get_audio(0, "giuseppe")
+            engine_con_testo.get_audio(0, "paola")
 
-        # Assert — "giuseppe:neutro:0" deve essere l'ultimo (MRU)
+        # Assert — "paola:0" deve essere l'ultimo (MRU)
         keys = list(engine_con_testo._cache.keys())
-        assert keys[-1] == "giuseppe:neutro:0"
+        assert keys[-1] == "paola:0"
 
     def test_clear_cache_svuota_completamente(self, engine):
         """_clear_cache deve rimuovere tutti gli elementi."""
@@ -252,10 +252,10 @@ class TestTTSEngineSaveAll:
         with patch.object(
             engine_con_testo,
             "_synthesize",
-            side_effect=lambda i, v, s: mp3_chunks[i],
+            side_effect=lambda i, v: mp3_chunks[i],
         ):
             # Act
-            risultato = engine_con_testo.save_all("giuseppe")
+            risultato = engine_con_testo.save_all("paola")
 
         # Assert — i bytes devono essere la concatenazione in ordine
         assert risultato == b"chunk_0" + b"chunk_1" + b"chunk_2"
@@ -263,17 +263,17 @@ class TestTTSEngineSaveAll:
     def test_save_all_usa_cache_se_disponibile(self, engine_con_testo):
         """save_all deve usare la cache per i paragrafi già sintetizzati."""
         # Arrange — pre-popola cache per paragrafo 0
-        engine_con_testo._put_cache("giuseppe:neutro:0", b"cached_0")
+        engine_con_testo._put_cache("paola:0", b"cached_0")
         call_count = 0
 
-        def fake_synthesize(i, v, s):
+        def fake_synthesize(i, v):
             nonlocal call_count
             call_count += 1
             return f"synth_{i}".encode()
 
         with patch.object(engine_con_testo, "_synthesize", side_effect=fake_synthesize):
             # Act
-            risultato = engine_con_testo.save_all("giuseppe")
+            risultato = engine_con_testo.save_all("paola")
 
         # Assert — _synthesize chiamato solo per paragrafi 1 e 2 (non 0)
         assert call_count == 2
@@ -282,7 +282,7 @@ class TestTTSEngineSaveAll:
     def test_save_all_senza_paragrafi_restituisce_vuoto(self, engine):
         """save_all senza paragrafi caricati deve restituire bytes vuoti."""
         # Act
-        risultato = engine.save_all("giuseppe")
+        risultato = engine.save_all("paola")
 
         # Assert
         assert risultato == b""
@@ -302,7 +302,7 @@ class TestTTSEnginePrefetch:
         with patch.object(engine_con_testo, "_synthesize", return_value=b"mp3"):
             # Act & Assert — deve completare in meno di 1 secondo
             start = time.monotonic()
-            engine_con_testo.prefetch(0, "giuseppe")
+            engine_con_testo.prefetch(0, "paola")
             elapsed = time.monotonic() - start
 
             assert elapsed < 1.0
@@ -310,11 +310,11 @@ class TestTTSEnginePrefetch:
     def test_prefetch_skip_se_gia_in_cache(self, engine_con_testo):
         """Se il paragrafo è già in cache, il prefetch non deve fare nulla."""
         # Arrange
-        engine_con_testo._put_cache("giuseppe:neutro:0", b"cached")
+        engine_con_testo._put_cache("paola:0", b"cached")
 
         with patch.object(engine_con_testo, "_synthesize") as mock_synth:
             # Act
-            engine_con_testo.prefetch(0, "giuseppe")
+            engine_con_testo.prefetch(0, "paola")
             # Attendi brevemente per il thread pool
             time.sleep(0.1)
 
@@ -324,8 +324,8 @@ class TestTTSEnginePrefetch:
     def test_prefetch_ignora_indice_fuori_range(self, engine_con_testo):
         """Indici fuori range devono essere ignorati silenziosamente."""
         # Act & Assert — non deve lanciare eccezioni
-        engine_con_testo.prefetch(-1, "giuseppe")
-        engine_con_testo.prefetch(999, "giuseppe")
+        engine_con_testo.prefetch(-1, "paola")
+        engine_con_testo.prefetch(999, "paola")
 
     def test_prefetch_inserisce_in_cache(self, engine_con_testo):
         """Il prefetch deve inserire il risultato in cache al completamento."""
@@ -339,11 +339,11 @@ class TestTTSEnginePrefetch:
             # Esegui il task sincrono (elimina race condition da CI)
             mock_exec.submit.side_effect = lambda fn: fn()
             # Act
-            engine_con_testo.prefetch(0, "giuseppe")
+            engine_con_testo.prefetch(0, "paola")
 
         # Assert
-        assert "giuseppe:neutro:0" in engine_con_testo._cache
-        assert engine_con_testo._cache["giuseppe:neutro:0"] == fake_mp3
+        assert "paola:0" in engine_con_testo._cache
+        assert engine_con_testo._cache["paola:0"] == fake_mp3
 
 
 # ===========================================================================
@@ -362,10 +362,10 @@ class TestTTSEngineGetAudioIntegration:
             patch.object(engine_con_testo, "prefetch") as mock_prefetch,
         ):
             # Act
-            engine_con_testo.get_audio(0, "giuseppe")
+            engine_con_testo.get_audio(0, "paola")
 
         # Assert — prefetch chiamato per il paragrafo 1
-        mock_prefetch.assert_called_once_with(1, "giuseppe", "neutro")
+        mock_prefetch.assert_called_once_with(1, "paola")
 
     def test_get_audio_no_prefetch_su_ultimo_paragrafo(self, engine_con_testo):
         """L'ultimo paragrafo non deve triggerare il prefetch."""
@@ -377,7 +377,7 @@ class TestTTSEngineGetAudioIntegration:
             patch.object(engine_con_testo, "prefetch") as mock_prefetch,
         ):
             # Act
-            engine_con_testo.get_audio(ultimo_idx, "giuseppe")
+            engine_con_testo.get_audio(ultimo_idx, "paola")
 
         # Assert — prefetch NON chiamato
         mock_prefetch.assert_not_called()
@@ -386,18 +386,18 @@ class TestTTSEngineGetAudioIntegration:
         """Voci diverse devono avere entry di cache separate."""
 
         # Arrange
-        def fake_synth(idx, voice, style):
+        def fake_synth(idx, voice):
             return f"mp3_{voice}".encode()
 
         with patch.object(engine_con_testo, "_synthesize", side_effect=fake_synth):
             # Act
-            audio_g = engine_con_testo.get_audio(0, "giuseppe")
-            audio_i = engine_con_testo.get_audio(0, "isabella")
+            audio_p = engine_con_testo.get_audio(0, "paola")
+            audio_m = engine_con_testo.get_audio(0, "maria")
 
         # Assert
-        assert audio_g != audio_i
-        assert "giuseppe:neutro:0" in engine_con_testo._cache
-        assert "isabella:neutro:0" in engine_con_testo._cache
+        assert audio_p != audio_m
+        assert "paola:0" in engine_con_testo._cache
+        assert "maria:0" in engine_con_testo._cache
 
 
 # ===========================================================================
@@ -516,4 +516,4 @@ class TestSynthesizeRaceCondition:
 
         # Act & Assert
         with pytest.raises(IndexError, match="fuori range"):
-            engine._synthesize(0, "giuseppe")
+            engine._synthesize(0, "paola")

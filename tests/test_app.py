@@ -129,7 +129,7 @@ class TestIndexEndpoint:
 
 class TestVoicesEndpoint:
     def test_voices_endpoint(self, client):
-        """GET /api/voices deve restituire le 8 voci con struttura corretta."""
+        """GET /api/voices deve restituire le voci con struttura corretta."""
         # Act
         response = client.get("/api/voices")
         data = response.get_json()
@@ -138,7 +138,7 @@ class TestVoicesEndpoint:
         assert response.status_code == 200
         assert "voices" in data
         assert "default" in data
-        assert len(data["voices"]) == 8
+        assert len(data["voices"]) == 1
 
         # Ogni voce deve avere i campi obbligatori
         campi_obbligatori = {"id", "label", "type", "multilingual", "gender", "lang"}
@@ -241,7 +241,7 @@ class TestSaveEndpoint:
         # Act
         response = client.post(
             "/api/save",
-            data='{"voice": "giuseppe"}',
+            data='{"voice": "paola"}',
             content_type="application/json",
         )
 
@@ -302,13 +302,13 @@ class TestTTSEngine:
 
         with patch.object(engine, "_synthesize", return_value=fake_mp3) as mock_synth:
             # Act — prima chiamata: sintesi + inserimento cache
-            risultato_1 = engine.get_audio(0, "giuseppe")
+            risultato_1 = engine.get_audio(0, "paola")
 
             # Resetto il mock per verificare che la seconda chiamata NON chiami _synthesize
             mock_synth.reset_mock()
 
             # Act — seconda chiamata: deve usare la cache
-            risultato_2 = engine.get_audio(0, "giuseppe")
+            risultato_2 = engine.get_audio(0, "paola")
 
         # Assert
         assert risultato_1 == fake_mp3
@@ -323,7 +323,7 @@ class TestTTSEngine:
 
         # Act & Assert — indice troppo alto
         with pytest.raises(IndexError):
-            engine.get_audio(99, "giuseppe")
+            engine.get_audio(99, "paola")
 
     def test_engine_index_negative(self, engine):
         """get_audio con indice negativo deve sollevare IndexError."""
@@ -332,27 +332,27 @@ class TestTTSEngine:
 
         # Act & Assert
         with pytest.raises(IndexError):
-            engine.get_audio(-1, "giuseppe")
+            engine.get_audio(-1, "paola")
 
     def test_engine_cache_different_voices(self, engine):
         """Cache key include la voce: voci diverse non condividono cache."""
         # Arrange
         engine.load_text("Paragrafo test.", "test.md")
-        mp3_giuseppe = b"mp3_giuseppe"
-        mp3_isabella = b"mp3_isabella"
+        mp3_paola = b"mp3_paola"
+        mp3_maria = b"mp3_maria"
 
-        def fake_synthesize(index, voice, style):
-            return mp3_giuseppe if voice == "giuseppe" else mp3_isabella
+        def fake_synthesize(index, voice):
+            return mp3_paola if voice == "paola" else mp3_maria
 
         with patch.object(engine, "_synthesize", side_effect=fake_synthesize):
             # Act
-            audio_giuseppe = engine.get_audio(0, "giuseppe")
-            audio_isabella = engine.get_audio(0, "isabella")
+            audio_paola = engine.get_audio(0, "paola")
+            audio_maria = engine.get_audio(0, "maria")
 
         # Assert — risultati distinti per voce diversa
-        assert audio_giuseppe == mp3_giuseppe
-        assert audio_isabella == mp3_isabella
-        assert audio_giuseppe != audio_isabella
+        assert audio_paola == mp3_paola
+        assert audio_maria == mp3_maria
+        assert audio_paola != audio_maria
 
 
 # ===========================================================================
@@ -394,14 +394,14 @@ class TestSaveAll:
 
         call_count = 0
 
-        def fake_get_audio(idx, voice, style):
+        def fake_get_audio(idx, voice):
             nonlocal call_count
             call_count += 1
             return f"mp3_{idx}".encode()
 
         with patch.object(engine, "get_audio", side_effect=fake_get_audio):
             # Act
-            result = engine.save_all("giuseppe")
+            result = engine.save_all("paola")
 
         # Assert
         assert call_count == 3
@@ -424,7 +424,7 @@ class TestPrefetchLogging:
             patch("src.tts_engine.log") as mock_log,
         ):
             # Act
-            engine.prefetch(0, "giuseppe")
+            engine.prefetch(0, "paola")
             # Attendi che il thread pool esegua il task
             time.sleep(0.5)
 
@@ -454,7 +454,7 @@ class TestSaveEndpointPost:
         # Act
         response = client.post(
             "/api/save",
-            data='{"voice": "giuseppe"}',
+            data='{"voice": "paola"}',
             content_type="application/json",
         )
 

@@ -174,28 +174,27 @@ class TestAudioEndpointSuccess:
 
         with patch.object(flask_app.engine, "get_audio", return_value=fake_mp3):
             # Act
-            response = client_con_testo.get("/api/audio/0?voice=giuseppe")
+            response = client_con_testo.get("/api/audio/0?voice=paola")
 
         # Assert
         assert response.status_code == 200
         assert response.content_type == "audio/mpeg"
         assert response.data == fake_mp3
 
-    def test_audio_con_voce_diversa(self, client_con_testo):
-        """GET /api/audio/0?voice=isabella deve usare la voce specificata."""
+    def test_audio_passa_voce_all_engine(self, client_con_testo):
+        """GET /api/audio/0?voice=paola deve passare la voce all'engine."""
         # Arrange
         from src import app as flask_app
-        from src.config import DEFAULT_STYLE
 
-        fake_mp3 = b"mp3_isabella"
+        fake_mp3 = b"mp3_paola"
 
         with patch.object(flask_app.engine, "get_audio", return_value=fake_mp3) as mock:
             # Act
-            response = client_con_testo.get("/api/audio/1?voice=isabella")
+            response = client_con_testo.get("/api/audio/1?voice=paola")
 
         # Assert
         assert response.status_code == 200
-        mock.assert_called_once_with(1, "isabella", DEFAULT_STYLE)
+        mock.assert_called_once_with(1, "paola")
 
     def test_audio_paragrafo_inesistente_404(self, client_con_testo):
         """GET /api/audio/999 deve restituire 404."""
@@ -204,7 +203,7 @@ class TestAudioEndpointSuccess:
 
         with patch.object(flask_app.engine, "get_audio", side_effect=IndexError("out of range")):
             # Act
-            response = client_con_testo.get("/api/audio/999?voice=giuseppe")
+            response = client_con_testo.get("/api/audio/999?voice=paola")
 
         # Assert
         assert response.status_code == 404
@@ -218,9 +217,9 @@ class TestAudioEndpointSuccess:
             flask_app.engine,
             "get_audio",
             side_effect=RuntimeError("ffmpeg crashed"),
-        ):
+        ), patch("src.app.log"):
             # Act
-            response = client_con_testo.get("/api/audio/0?voice=giuseppe")
+            response = client_con_testo.get("/api/audio/0?voice=paola")
 
         # Assert
         assert response.status_code == 500
@@ -242,23 +241,22 @@ class TestPrefetchEndpoint:
         """GET /api/prefetch/1 deve restituire status ok."""
         # Arrange
         from src import app as flask_app
-        from src.config import DEFAULT_STYLE
 
         with patch.object(flask_app.engine, "prefetch") as mock_pf:
             # Act
-            response = client_con_testo.get("/api/prefetch/1?voice=giuseppe")
+            response = client_con_testo.get("/api/prefetch/1?voice=paola")
 
         # Assert
         assert response.status_code == 200
         data = response.get_json()
         assert data["status"] == "ok"
-        mock_pf.assert_called_once_with(1, "giuseppe", DEFAULT_STYLE)
+        mock_pf.assert_called_once_with(1, "paola")
 
     def test_prefetch_usa_voce_default(self, client_con_testo):
         """Senza parametro voice, deve usare la voce di default."""
         # Arrange
         from src import app as flask_app
-        from src.config import DEFAULT_STYLE, DEFAULT_VOICE
+        from src.config import DEFAULT_VOICE
 
         with patch.object(flask_app.engine, "prefetch") as mock_pf:
             # Act
@@ -266,7 +264,7 @@ class TestPrefetchEndpoint:
 
         # Assert
         assert response.status_code == 200
-        mock_pf.assert_called_once_with(0, DEFAULT_VOICE, DEFAULT_STYLE)
+        mock_pf.assert_called_once_with(0, DEFAULT_VOICE)
 
 
 # ===========================================================================
@@ -288,7 +286,7 @@ class TestSaveEndpointSuccess:
             # Act
             response = client_con_testo.post(
                 "/api/save",
-                data='{"voice": "giuseppe"}',
+                data='{"voice": "paola"}',
                 content_type="application/json",
             )
 
@@ -457,65 +455,4 @@ class TestTooLargeErrorHandler:
         assert response.headers.get("X-Content-Type-Options") == "nosniff"
 
 
-# ===========================================================================
-# Test — /api/audio con style invalido
-# ===========================================================================
 
-
-class TestAudioInvalidStyle:
-    """Verifica che style non valido su /api/audio restituisca 400."""
-
-    def test_audio_style_invalido_restituisce_400(self, client_con_testo):
-        """GET /api/audio/0?style=nonexistent deve restituire 400 con error."""
-        # Act
-        response = client_con_testo.get("/api/audio/0?voice=giuseppe&style=nonexistent")
-
-        # Assert
-        assert response.status_code == 400
-        body = response.get_json()
-        assert "error" in body
-
-    def test_audio_style_vuoto_restituisce_400(self, client_con_testo):
-        """GET /api/audio/0?style= (stringa vuota) deve restituire 400."""
-        # Act
-        response = client_con_testo.get("/api/audio/0?voice=giuseppe&style=")
-
-        # Assert
-        assert response.status_code == 400
-        assert "error" in response.get_json()
-
-
-# ===========================================================================
-# Test — /api/save con style invalido
-# ===========================================================================
-
-
-class TestSaveInvalidStyle:
-    """Verifica che style non valido su /api/save restituisca 400."""
-
-    def test_save_style_invalido_restituisce_400(self, client_con_testo):
-        """POST /api/save con style inesistente deve restituire 400."""
-        # Act
-        response = client_con_testo.post(
-            "/api/save",
-            data='{"voice": "giuseppe", "style": "nonexistent"}',
-            content_type="application/json",
-        )
-
-        # Assert
-        assert response.status_code == 400
-        body = response.get_json()
-        assert "error" in body
-
-    def test_save_style_vuoto_restituisce_400(self, client_con_testo):
-        """POST /api/save con style='' deve restituire 400."""
-        # Act
-        response = client_con_testo.post(
-            "/api/save",
-            data='{"voice": "giuseppe", "style": ""}',
-            content_type="application/json",
-        )
-
-        # Assert
-        assert response.status_code == 400
-        assert "error" in response.get_json()
