@@ -361,7 +361,7 @@ body {
 }
 
 .paragraph-text {
-  font-family: 'Literata', Georgia, 'Times New Roman', serif;
+  font-family: Georgia, 'Times New Roman', serif;
   font-size: 1.35rem;
   line-height: 1.85;
   color: var(--text);
