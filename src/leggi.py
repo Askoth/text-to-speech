@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 leggi.py
-Legge ad alta voce file di testo in italiano usando Piper TTS o Edge TTS.
+Legge ad alta voce file di testo in italiano usando Piper TTS.
 Supporta: Markdown, TXT, EPUB, DOCX, HTML, PDF.
 
 Uso:
@@ -10,10 +10,6 @@ Uso:
     python leggi.py libro.epub --voice paola --salva output.mp3
 
 Voci disponibili:
-    giuseppe  - Edge TTS, maschile, multilingue (default, richiede internet)
-    isabella  - Edge TTS, femminile
-    elsa      - Edge TTS, femminile
-    diego     - Edge TTS, maschile
     paola     - Piper TTS, femminile, offline
 
 Setup iniziale (una sola volta):
@@ -35,7 +31,6 @@ from src.config import (
     ALL_VOICES,
     DATA_OUTPUT,
     DEFAULT_VOICE,
-    EDGE_VOICES,
     GREEN,
     NC,
     PIPER_VOICES,
@@ -47,7 +42,7 @@ from src.config import (
     suggerisci_installazione,
     verifica_prerequisiti,
 )
-from src.synthesis import scarica_voce_piper, sintetizza_edge, sintetizza_piper
+from src.synthesis import scarica_voce_piper, sintetizza_piper
 
 # ─── Utilità audio ───────────────────────────────────────────────────────────
 
@@ -237,78 +232,6 @@ def leggi_con_piper(testo: str, salva_path: Path | None = None, cartella_par: Pa
         info(f"Salvato: {salva_path} ({len(tutti_wav)} paragrafi)")
 
 
-# ─── Lettura con Edge TTS ───────────────────────────────────────────────────
-
-
-def leggi_con_edge(
-    testo: str, voice_name: str, salva_path: Path | None = None, cartella_par: Path | None = None
-):
-    try:
-        import edge_tts  # noqa: F401
-    except ImportError:
-        error("edge-tts non trovato. Installa con: pip install edge-tts")
-        sys.exit(1)
-
-    voice_id = EDGE_VOICES[voice_name]["edge_id"]
-    riproduce = _ha_player("mp3")
-    if not riproduce and salva_path is None:
-        installa = suggerisci_installazione("ffmpeg")
-        error(f"Nessun player audio trovato.\n         Installa ffmpeg:\n         {installa}")
-        sys.exit(1)
-
-    paragrafi = [p.strip() for p in testo.split("\n\n") if p.strip()]
-    info(f"Paragrafi da leggere: {len(paragrafi)}")
-
-    if salva_path:
-        salva_path.parent.mkdir(parents=True, exist_ok=True)
-        if cartella_par:
-            cartella_par.mkdir(parents=True, exist_ok=True)
-        info(f"Salvataggio in: {salva_path}")
-
-    if riproduce:
-        info("Avvio lettura... (Ctrl+C per interrompere)")
-
-    asyncio.run(_loop_edge(voice_id, paragrafi, riproduce, salva_path, cartella_par))
-
-
-async def _loop_edge(voice_id, paragrafi, riproduce, salva_path, cartella_par):
-    tutti_mp3 = []
-    totale = len(paragrafi)
-
-    # Prefetch: sintetizza il primo paragrafo subito
-    prossimo = asyncio.create_task(sintetizza_edge(voice_id, paragrafi[0]))
-
-    try:
-        for i, paragrafo in enumerate(paragrafi, 1):
-            mostra_paragrafo(i, totale, paragrafo, riproduce)
-
-            # Attendi l'audio (già in prefetch)
-            mp3_bytes = await prossimo
-
-            # Lancia prefetch del prossimo paragrafo durante la riproduzione
-            if i < totale:
-                prossimo = asyncio.create_task(sintetizza_edge(voice_id, paragrafi[i]))
-
-            if salva_path:
-                tutti_mp3.append(mp3_bytes)
-                if cartella_par:
-                    (cartella_par / f"{i:03d}.mp3").write_bytes(mp3_bytes)
-                if not riproduce:
-                    info(f"[{i}/{totale}] salvato")
-
-            if riproduce:
-                await _riproduci_async(mp3_bytes)
-
-    except KeyboardInterrupt:  # pragma: no cover — requires real SIGINT
-        print()
-        info("Lettura interrotta.")
-
-    if salva_path and tutti_mp3:
-        info("Creo file audio completo...")
-        concatena_mp3(tutti_mp3, salva_path)
-        info(f"Salvato: {salva_path} ({len(tutti_mp3)} paragrafi)")
-
-
 async def _riproduci_async(mp3_bytes: bytes):
     """Riproduce MP3 in modo non-bloccante per l'event loop."""
     cmd, supporta_stdin = _trova_player("mp3")
@@ -383,10 +306,6 @@ def main():
         epilog=f"""formati supportati: {ext_list}
 
 voci disponibili:
-  giuseppe  Edge TTS, maschile, multilingue IT/EN (default)
-  isabella  Edge TTS, femminile
-  elsa      Edge TTS, femminile
-  diego     Edge TTS, maschile
   paola     Piper TTS, femminile, offline
 
 struttura output (con --salva):
@@ -437,7 +356,7 @@ struttura output (con --salva):
         scarica_voce_piper()
         leggi_con_piper(testo, salva_path=salva_path, cartella_par=cartella_par)
     else:
-        leggi_con_edge(testo, args.voice, salva_path=salva_path, cartella_par=cartella_par)
+        error("Ha provatto da utilisare edge ma non c'e")
 
     info("Fine.")
 

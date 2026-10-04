@@ -15,16 +15,6 @@ DATA_OUTPUT = PROJECT_ROOT / "data" / "output"
 
 # ─── Configurazione voci ─────────────────────────────────────────────────────
 
-EDGE_VOICES = {
-    "giuseppe": {"edge_id": "it-IT-GiuseppeMultilingualNeural", "gender": "M", "lang": "it"},
-    "isabella": {"edge_id": "it-IT-IsabellaNeural", "gender": "F", "lang": "it"},
-    "elsa": {"edge_id": "it-IT-ElsaNeural", "gender": "F", "lang": "it"},
-    "diego": {"edge_id": "it-IT-DiegoNeural", "gender": "M", "lang": "it"},
-    "andrew": {"edge_id": "en-US-AndrewMultilingualNeural", "gender": "M", "lang": "en"},
-    "ava": {"edge_id": "en-US-AvaMultilingualNeural", "gender": "F", "lang": "en"},
-    "ryan": {"edge_id": "en-GB-RyanNeural", "gender": "M", "lang": "en"},
-}
-
 PIPER_VOICES = {"paola"}
 
 VOICE_DIR = Path.home() / "piper-voices"
@@ -36,43 +26,8 @@ VOICE_URLS = {
     VOICE_JSON: "https://huggingface.co/rhasspy/piper-voices/resolve/main/it/it_IT/paola/medium/it_IT-paola-medium.onnx.json",
 }
 
-ALL_VOICES = sorted(list(EDGE_VOICES.keys()) + list(PIPER_VOICES))
+ALL_VOICES = sorted(list(PIPER_VOICES))
 DEFAULT_VOICE = "giuseppe"
-
-# ─── Stili di lettura (solo Edge TTS, via prosody SSML) ─────────────────────
-
-READING_STYLES = {
-    "neutro": {
-        "rate": "+0%",
-        "pitch": "+0Hz",
-    },
-    "notiziario": {
-        "rate": "+13%",
-        "pitch": "+5Hz",
-    },
-    "audiolibro": {
-        "rate": "-8%",
-        "pitch": "-3Hz",
-    },
-    "lento": {
-        "rate": "-20%",
-        "pitch": "+0Hz",
-    },
-}
-
-ALL_STYLES = sorted(READING_STYLES.keys())
-DEFAULT_STYLE = "neutro"
-
-# Stile predefinito in base all'estensione del file caricato
-FILE_STYLE_DEFAULTS = {
-    ".epub": "audiolibro",
-    ".md": "notiziario",
-    ".txt": "neutro",
-    ".docx": "neutro",
-    ".html": "notiziario",
-    ".htm": "notiziario",
-    ".pdf": "neutro",
-}
 
 # ─── Piattaforma e dipendenze di sistema ────────────────────────────────────
 

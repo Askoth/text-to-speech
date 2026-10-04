@@ -77,36 +77,3 @@ def sintetizza_piper(voce_piper, testo: str, sample_rate: int) -> bytes:
         voce_piper.synthesize_wav(testo, wf)
     return buf.getvalue()
 
-
-async def sintetizza_edge(
-    voice_id: str,
-    testo: str,
-    rate: str = "+0%",
-    pitch: str = "+0Hz",
-) -> bytes:
-    """Sintetizza testo con Edge TTS (Microsoft, richiede internet).
-
-    Parameters
-    ----------
-    voice_id : str
-        Identificativo voce Edge TTS (es. "it-IT-GiuseppeMultilingualNeural").
-    testo : str
-        Testo da sintetizzare.
-    rate : str, optional
-        Velocità di lettura (es. "+13%", "-8%"). Default: "+0%".
-    pitch : str, optional
-        Tono della voce (es. "+5Hz", "-3Hz"). Default: "+0Hz".
-
-    Returns
-    -------
-    bytes
-        Audio MP3 in memoria.
-    """
-    import edge_tts
-
-    comm = edge_tts.Communicate(testo, voice_id, rate=rate, pitch=pitch)
-    buf = io.BytesIO()
-    async for chunk in comm.stream():
-        if chunk["type"] == "audio":
-            buf.write(chunk["data"])
-    return buf.getvalue()

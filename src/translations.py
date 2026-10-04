@@ -91,18 +91,3 @@ def tr(lang: str, key: str, **kwargs) -> str:
     if kwargs:
         text = text.format(**kwargs)
     return text
-
-
-def get_styles_meta(lang: str) -> list[dict]:
-    """Restituisce i metadati degli stili nella lingua richiesta."""
-    from src.config import READING_STYLES
-
-    styles_i18n = TRANSLATIONS.get(lang, TRANSLATIONS[DEFAULT_LANG])["styles"]
-    return [
-        {
-            "id": sid,
-            "label": styles_i18n[sid]["label"],
-            "description": styles_i18n[sid]["description"],
-        }
-        for sid in READING_STYLES
-    ]

@@ -17,16 +17,12 @@ from urllib.parse import quote
 from flask import Flask, Response, jsonify, render_template, request
 
 from src.config import (
-    ALL_STYLES,
     ALL_VOICES,
-    DEFAULT_STYLE,
     DEFAULT_VOICE,
-    EDGE_VOICES,
-    FILE_STYLE_DEFAULTS,
     PIPER_VOICES,
 )
 from src.converters import SUPPORTED_EXTENSIONS
-from src.translations import get_lang, get_styles_meta, tr
+from src.translations import get_lang, tr
 from src.tts_engine import TTSEngine
 
 # Flask deve cercare templates/ e static/ nella root del progetto
@@ -40,16 +36,6 @@ log = logging.getLogger(__name__)
 
 # Derivare metadati voci dalla sorgente unica
 VOICES_META = [
-    {
-        "id": vid,
-        "label": vid.capitalize(),
-        "type": "edge",
-        "multilingual": "Multilingual" in info["edge_id"],
-        "gender": info["gender"],
-        "lang": info["lang"],
-    }
-    for vid, info in EDGE_VOICES.items()
-] + [
     {
         "id": vid,
         "label": vid.capitalize(),
@@ -96,13 +82,10 @@ def index():
 @app.route("/api/voices")
 def api_voices():
     lang = get_lang(request)
-    styles_meta = get_styles_meta(lang)
     return jsonify(
         {
             "voices": VOICES_META,
             "default": DEFAULT_VOICE,
-            "styles": styles_meta,
-            "default_style": DEFAULT_STYLE,
         }
     )
 
@@ -140,7 +123,6 @@ def api_load():
     finally:
         tmp_path.unlink(missing_ok=True)
 
-    suggested_style = FILE_STYLE_DEFAULTS.get(ext, DEFAULT_STYLE)
 
     return jsonify(
         {
@@ -149,7 +131,6 @@ def api_load():
             "paragraphs": [
                 {"idx": i, "text": p, "chars": len(p)} for i, p in enumerate(paragraphs)
             ],
-            "suggested_style": suggested_style,
         }
     )
 
@@ -159,21 +140,18 @@ def api_audio(idx):
     """Restituisce l'MP3 sintetizzato per il paragrafo dato."""
     lang = get_lang(request)
     voice = request.args.get("voice", DEFAULT_VOICE)
-    style = request.args.get("style", DEFAULT_STYLE)
     if voice not in ALL_VOICES:
         return jsonify({"error": tr(lang, "error.invalid_voice", voice=voice)}), 400
-    if style not in ALL_STYLES:
-        return jsonify({"error": tr(lang, "error.invalid_style", style=style)}), 400
 
     if not engine.paragraphs:
         return jsonify({"error": tr(lang, "error.no_file_loaded")}), 400
 
     try:
-        mp3_bytes = engine.get_audio(idx, voice, style)
+        mp3_bytes = engine.get_audio(idx, voice)
     except IndexError:
         return jsonify({"error": tr(lang, "error.paragraph_not_found", idx=idx)}), 404
     except Exception:
-        log.exception("Errore sintesi paragrafo %d con voce %s stile %s", idx, voice, style)
+        log.exception("Errore sintesi paragrafo %d con voce %s stile %s", idx, voice)
         return jsonify({"error": tr(lang, "error.synthesis_failed")}), 500
 
     return Response(mp3_bytes, mimetype="audio/mpeg")
@@ -183,8 +161,7 @@ def api_audio(idx):
 def api_prefetch(idx):
     """Avvia prefetch del paragrafo in background."""
     voice = request.args.get("voice", DEFAULT_VOICE)
-    style = request.args.get("style", DEFAULT_STYLE)
-    engine.prefetch(idx, voice, style)
+    engine.prefetch(idx, voice)
     return jsonify({"status": "ok"})
 
 
@@ -194,15 +171,12 @@ def api_save():
     lang = get_lang(request)
     data = request.get_json(silent=True) or {}
     voice = data.get("voice", DEFAULT_VOICE)
-    style = data.get("style", DEFAULT_STYLE)
     if voice not in ALL_VOICES:
         return jsonify({"error": tr(lang, "error.invalid_voice", voice=voice)}), 400
-    if style not in ALL_STYLES:
-        return jsonify({"error": tr(lang, "error.invalid_style", style=style)}), 400
     if not engine.paragraphs:
         return jsonify({"error": tr(lang, "error.no_file_loaded")}), 400
 
-    mp3_bytes = engine.save_all(voice, style)
+    mp3_bytes = engine.save_all(voice)
 
     stem = Path(engine.filename).stem
     safe_name = "".join(c for c in f"{stem}.mp3" if c.isalnum() or c in ".-_ ") or "output.mp3"
