@@ -1,7 +1,7 @@
 """
 tts_engine.py
-Wrapper TTS con cache in-memory e prefetch asincrono.
-Importa le funzioni di sintesi da synthesis.py.
+TTS wrapper with in-memory cache and async prefetch.
+Imports the synthesis functions from synthesis.py.
 """
 
 import asyncio
@@ -13,12 +13,12 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 
 from src.config import PIPER_VOICES
-from src.converters import file_a_testo
-from src.synthesis import scarica_voce_piper, sintetizza_piper
+from src.converters import file_to_text
+from src.synthesis import download_piper_voice, synthesize_piper
 
 log = logging.getLogger(__name__)
 
-# Event loop dedicato per le coroutine Edge TTS (thread-safe)
+# Dedicated event loop for the Edge TTS coroutines (thread-safe)
 _async_loop = asyncio.new_event_loop()
 threading.Thread(target=_async_loop.run_forever, daemon=True, name="tts-async-loop").start()
 
@@ -27,7 +27,7 @@ _executor = ThreadPoolExecutor(max_workers=2)
 
 
 def _wav_to_mp3_bytes(wav_bytes: bytes) -> bytes:
-    """Converte WAV in MP3 in memoria tramite ffmpeg (pipe in/out)."""
+    """Convert WAV to MP3 in memory via ffmpeg (pipe in/out)."""
     result = subprocess.run(
         [
             "ffmpeg",
@@ -53,16 +53,16 @@ def _wav_to_mp3_bytes(wav_bytes: bytes) -> bytes:
 
 
 def _concat_mp3_bytes(mp3_list: list[bytes]) -> bytes:
-    """Concatena una lista di MP3 in un unico file.
+    """Concatenate a list of MP3s into a single file.
 
-    I frame MP3 sono auto-sincronizzanti: la concatenazione
-    diretta dei bytes produce un file valido senza re-encoding.
+    MP3 frames are self-synchronizing: direct concatenation
+    of the bytes produces a valid file without re-encoding.
     """
     return b"".join(mp3_list)
 
 
 class TTSEngine:
-    """Gestisce sintesi, cache e prefetch per la web UI."""
+    """Manages synthesis, cache, and prefetch for the web UI."""
 
     def __init__(self):
         self._cache: OrderedDict[str, bytes] = OrderedDict()
@@ -81,12 +81,12 @@ class TTSEngine:
         return self._filename
 
     def load_file(self, path: Path) -> list[str]:
-        """Carica un file e restituisce la lista di paragrafi.
+        """Load a file and return the list of paragraphs.
 
-        Supporta: .md, .txt, .epub, .docx, .html, .htm, .pdf
+        Supports: .md, .txt, .epub, .docx, .html, .htm, .pdf
         """
-        testo = file_a_testo(path)
-        paragraphs = [p.strip() for p in testo.split("\n\n") if p.strip()]
+        text = file_to_text(path)
+        paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
         with self._lock:
             self._paragraphs = paragraphs
             self._filename = path.name
@@ -94,7 +94,7 @@ class TTSEngine:
         return paragraphs
 
     def load_text(self, text: str, filename: str) -> list[str]:
-        """Carica testo raw e restituisce la lista di paragrafi."""
+        """Load raw text and return the list of paragraphs."""
         paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
         with self._lock:
             self._paragraphs = paragraphs
@@ -103,9 +103,9 @@ class TTSEngine:
         return paragraphs
 
     def get_audio(self, index: int, voice: str) -> bytes:
-        """Restituisce MP3 bytes per il paragrafo. Usa cache se disponibile."""
+        """Return MP3 bytes for the paragraph. Use cache if available."""
         if index < 0 or index >= len(self._paragraphs):
-            raise IndexError(f"Paragrafo {index} fuori range")
+            raise IndexError(f"Paragraph {index} out of range")
 
         cache_key = f"{voice}:{index}"
         with self._lock:
@@ -119,7 +119,7 @@ class TTSEngine:
         future = self._job_or_existing(index, voice, cache_key)
         mp3_bytes = future.result()
 
-        # Prefetch prossimo paragrafo in background
+        # Prefetch next paragraph in background
         if index + 1 < len(self._paragraphs):
             self.prefetch(index + 1, voice)
 
@@ -177,10 +177,10 @@ class TTSEngine:
                 self._inflight.pop(cache_key, None)
 
     def save_all(self, voice: str) -> bytes:
-        """Sintetizza tutti i paragrafi e restituisce MP3 concatenato.
+        """Synthesize all paragraphs and return concatenated MP3.
 
-        Usa uno snapshot della lista paragrafi per evitare corruzione
-        se un nuovo file viene caricato durante l'operazione.
+        Uses a snapshot of the paragraph list to avoid corruption
+        if a new file is loaded during the operation.
         """
         with self._lock:
             snapshot = list(self._paragraphs)
@@ -191,29 +191,29 @@ class TTSEngine:
         return _concat_mp3_bytes(all_mp3)
 
     def _synthesize(self, index: int, voice: str) -> bytes:
-        """Sintetizza un paragrafo. Restituisce sempre MP3."""
+        """Synthesize a paragraph. Always returns MP3."""
         with self._lock:
             if index < 0 or index >= len(self._paragraphs):
-                raise IndexError(f"Paragrafo {index} fuori range (durante sintesi)")
+                raise IndexError(f"Paragraph {index} out of range (during synthesis)")
             text = self._paragraphs[index]
 
-        # Piper (offline) — carica il modello della voce lazy, stile ignorato
-        voce_piper = self._load_piper(voice)
-        wav_bytes = sintetizza_piper(voce_piper, text, voce_piper.config.sample_rate)
+        # Piper (offline) — load the voice model lazily, style ignored
+        piper_voice = self._load_piper(voice)
+        wav_bytes = synthesize_piper(piper_voice, text, piper_voice.config.sample_rate)
         return _wav_to_mp3_bytes(wav_bytes)
 
     def _load_piper(self, voice):
-        """Carica il modello Piper della voce una sola volta (thread-safe)."""
+        """Load the Piper model for the voice once (thread-safe)."""
         with self._lock:
             if voice in self._piper_voices:
                 return self._piper_voices[voice]
             from piper import PiperVoice
 
-            scarica_voce_piper(voice)
+            download_piper_voice(voice)
             cfg = PIPER_VOICES[voice]
-            voce_piper = PiperVoice.load(str(cfg.model), config_path=str(cfg.json))
-            self._piper_voices[voice] = voce_piper
-            return voce_piper
+            piper_voice = PiperVoice.load(str(cfg.model), config_path=str(cfg.json))
+            self._piper_voices[voice] = piper_voice
+            return piper_voice
 
     def _put_cache(self, key: str, data: bytes):
         with self._lock:

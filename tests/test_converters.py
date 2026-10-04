@@ -1,8 +1,8 @@
 """
 tests/test_converters.py
-Test per il modulo converters.py: dispatcher e convertitori di formato.
+Tests for the converters module: dispatcher and format converters.
 
-Ogni convertitore è testato con file reali creati in tmp_path.
+Every converter is tested with real files created in tmp_path.
 """
 
 from pathlib import Path
@@ -10,151 +10,151 @@ from unittest.mock import patch
 
 import pytest
 
-from src.converters import SUPPORTED_EXTENSIONS, file_a_testo
+from src.converters import SUPPORTED_EXTENSIONS, file_to_text
 
 # ===========================================================================
-# Test — Dispatcher file_a_testo
+# Tests — Dispatcher file_to_text
 # ===========================================================================
 
 
-class TestFileATesto:
-    """Test per il dispatcher principale."""
+class TestFileToText:
+    """Tests for the main dispatcher."""
 
-    def test_estensione_non_supportata_solleva_errore(self, tmp_path):
-        """Un file con estensione non supportata deve sollevare ValueError."""
+    def test_unsupported_extension_raises_error(self, tmp_path):
+        """A file with an unsupported extension must raise ValueError."""
         # Arrange
         file_csv = tmp_path / "dati.csv"
         file_csv.write_text("a,b,c")
 
         # Act & Assert
-        with pytest.raises(ValueError, match="non supportato"):
-            file_a_testo(file_csv)
+        with pytest.raises(ValueError, match="not supported"):
+            file_to_text(file_csv)
 
-    def test_supported_extensions_contiene_tutti_i_formati(self):
-        """SUPPORTED_EXTENSIONS deve contenere tutti i formati dichiarati."""
+    def test_supported_extensions_contains_all_formats(self):
+        """SUPPORTED_EXTENSIONS must contain all the declared formats."""
         # Assert
-        attesi = {".md", ".txt", ".epub", ".docx", ".html", ".htm", ".pdf"}
-        assert attesi == SUPPORTED_EXTENSIONS
+        expected = {".md", ".txt", ".epub", ".docx", ".html", ".htm", ".pdf"}
+        assert expected == SUPPORTED_EXTENSIONS
 
     def test_dispatcher_case_insensitive(self, tmp_path):
-        """L'estensione deve essere case-insensitive."""
+        """The extension must be case-insensitive."""
         # Arrange
         file_txt = tmp_path / "test.TXT"
         file_txt.write_text("Contenuto del file.")
 
         # Act
-        risultato = file_a_testo(file_txt)
+        result = file_to_text(file_txt)
 
         # Assert
-        assert risultato == "Contenuto del file."
+        assert result == "Contenuto del file."
 
 
 # ===========================================================================
-# Test — Convertitore .txt
+# Tests — .txt converter
 # ===========================================================================
 
 
-class TestConvertiTesto:
-    """Test per il convertitore di file testo puro."""
+class TestConvertText:
+    """Tests for the plain-text file converter."""
 
-    def test_legge_testo_semplice(self, tmp_path):
-        """Un file .txt deve essere letto e restituito invariato."""
+    def test_reads_simple_text(self, tmp_path):
+        """A .txt file must be read and returned unchanged."""
         # Arrange
         txt = tmp_path / "nota.txt"
         txt.write_text("Questa è una nota semplice.")
 
         # Act
-        risultato = file_a_testo(txt)
+        result = file_to_text(txt)
 
         # Assert
-        assert risultato == "Questa è una nota semplice."
+        assert result == "Questa è una nota semplice."
 
     def test_strip_whitespace(self, tmp_path):
-        """Spazi iniziali e finali devono essere rimossi."""
+        """Leading and trailing spaces must be removed."""
         # Arrange
         txt = tmp_path / "spazi.txt"
         txt.write_text("  \n\nContenuto con spazi.\n\n  ")
 
         # Act
-        risultato = file_a_testo(txt)
+        result = file_to_text(txt)
 
         # Assert
-        assert risultato == "Contenuto con spazi."
+        assert result == "Contenuto con spazi."
 
-    def test_file_vuoto(self, tmp_path):
-        """Un file vuoto deve restituire stringa vuota."""
+    def test_empty_file(self, tmp_path):
+        """An empty file must return an empty string."""
         # Arrange
         txt = tmp_path / "vuoto.txt"
         txt.write_text("")
 
         # Act
-        risultato = file_a_testo(txt)
+        result = file_to_text(txt)
 
         # Assert
-        assert risultato == ""
+        assert result == ""
 
-    def test_unicode_preservato(self, tmp_path):
-        """Caratteri unicode (accenti, emoji) devono essere preservati."""
+    def test_unicode_preserved(self, tmp_path):
+        """Unicode characters (accents, emoji) must be preserved."""
         # Arrange
         txt = tmp_path / "unicode.txt"
         txt.write_text("Caffè, più, naïve, 日本語")
 
         # Act
-        risultato = file_a_testo(txt)
+        result = file_to_text(txt)
 
         # Assert
-        assert "Caffè" in risultato
-        assert "日本語" in risultato
+        assert "Caffè" in result
+        assert "日本語" in result
 
-    def test_paragrafi_multipli(self, tmp_path):
-        """Più paragrafi separati da righe vuote devono essere preservati."""
+    def test_multiple_paragraphs(self, tmp_path):
+        """Multiple paragraphs separated by blank lines must be preserved."""
         # Arrange
         txt = tmp_path / "multi.txt"
         txt.write_text("Primo paragrafo.\n\nSecondo paragrafo.\n\nTerzo.")
 
         # Act
-        risultato = file_a_testo(txt)
+        result = file_to_text(txt)
 
         # Assert
-        assert "Primo paragrafo." in risultato
-        assert "Secondo paragrafo." in risultato
-        assert "Terzo." in risultato
+        assert "Primo paragrafo." in result
+        assert "Secondo paragrafo." in result
+        assert "Terzo." in result
 
 
 # ===========================================================================
-# Test — Convertitore .md (delega a leggi)
+# Tests — .md converter (delegates to reader)
 # ===========================================================================
 
 
-class TestConvertiMarkdown:
-    """Test per il convertitore Markdown (delega a markdown_a_testo)."""
+class TestConvertMarkdown:
+    """Tests for the Markdown converter (delegates to markdown_to_text)."""
 
-    def test_rimuove_header_markdown(self, tmp_path):
-        """I titoli # devono essere rimossi dal testo."""
+    def test_removes_markdown_headers(self, tmp_path):
+        """Markdown titles # must be removed from the text."""
         # Arrange
         md = tmp_path / "doc.md"
         md.write_text("# Titolo\n\nContenuto del documento.")
 
-        # Act — forza fallback regex (senza pandoc)
+        # Act — force regex fallback (no pandoc)
         with patch("src.converters.shutil.which", return_value=None):
-            risultato = file_a_testo(md)
+            result = file_to_text(md)
 
         # Assert
-        assert "#" not in risultato
-        assert "Titolo" in risultato
-        assert "Contenuto del documento." in risultato
+        assert "#" not in result
+        assert "Titolo" in result
+        assert "Contenuto del documento." in result
 
 
 # ===========================================================================
-# Test — Convertitore .docx
+# Tests — .docx converter
 # ===========================================================================
 
 
-class TestConvertiDocx:
-    """Test per il convertitore Word DOCX."""
+class TestConvertDocx:
+    """Tests for the Word DOCX converter."""
 
-    def test_estrae_paragrafi(self, tmp_path):
-        """Un DOCX con paragrafi deve restituire il testo separato."""
+    def test_extracts_paragraphs(self, tmp_path):
+        """A DOCX with paragraphs must return the separated text."""
         from docx import Document
 
         # Arrange
@@ -165,34 +165,34 @@ class TestConvertiDocx:
         doc.save(str(docx_path))
 
         # Act
-        risultato = file_a_testo(docx_path)
+        result = file_to_text(docx_path)
 
         # Assert
-        assert "Primo paragrafo del documento." in risultato
-        assert "Secondo paragrafo con contenuto." in risultato
+        assert "Primo paragrafo del documento." in result
+        assert "Secondo paragrafo con contenuto." in result
 
-    def test_ignora_paragrafi_vuoti(self, tmp_path):
-        """Paragrafi vuoti nel DOCX devono essere ignorati."""
+    def test_ignores_empty_paragraphs(self, tmp_path):
+        """Empty paragraphs in the DOCX must be ignored."""
         from docx import Document
 
         # Arrange
         docx_path = tmp_path / "vuoti.docx"
         doc = Document()
         doc.add_paragraph("Testo valido.")
-        doc.add_paragraph("")  # vuoto
-        doc.add_paragraph("   ")  # solo spazi
+        doc.add_paragraph("")  # empty
+        doc.add_paragraph("   ")  # whitespace only
         doc.add_paragraph("Altro testo.")
         doc.save(str(docx_path))
 
         # Act
-        risultato = file_a_testo(docx_path)
-        paragrafi = [p for p in risultato.split("\n\n") if p.strip()]
+        result = file_to_text(docx_path)
+        paragraphs = [p for p in result.split("\n\n") if p.strip()]
 
         # Assert
-        assert len(paragrafi) == 2
+        assert len(paragraphs) == 2
 
-    def test_docx_vuoto(self, tmp_path):
-        """Un DOCX senza contenuto deve restituire stringa vuota."""
+    def test_empty_docx(self, tmp_path):
+        """A DOCX without content must return an empty string."""
         from docx import Document
 
         # Arrange
@@ -201,22 +201,22 @@ class TestConvertiDocx:
         doc.save(str(docx_path))
 
         # Act
-        risultato = file_a_testo(docx_path)
+        result = file_to_text(docx_path)
 
         # Assert
-        assert risultato == ""
+        assert result == ""
 
 
 # ===========================================================================
-# Test — Convertitore .html
+# Tests — .html converter
 # ===========================================================================
 
 
-class TestConvertiHtml:
-    """Test per il convertitore HTML."""
+class TestConvertHtml:
+    """Tests for the HTML converter."""
 
-    def test_estrae_testo_body(self, tmp_path):
-        """Il testo del body deve essere estratto."""
+    def test_extracts_body_text(self, tmp_path):
+        """The body text must be extracted."""
         # Arrange
         html = tmp_path / "pagina.html"
         html.write_text("""<!DOCTYPE html>
@@ -225,14 +225,14 @@ class TestConvertiHtml:
 </html>""")
 
         # Act
-        risultato = file_a_testo(html)
+        result = file_to_text(html)
 
         # Assert
-        assert "Titolo" in risultato
-        assert "Contenuto della pagina." in risultato
+        assert "Titolo" in result
+        assert "Contenuto della pagina." in result
 
-    def test_rimuove_script_e_style(self, tmp_path):
-        """Tag script e style devono essere rimossi."""
+    def test_removes_script_and_style(self, tmp_path):
+        """Script and style tags must be removed."""
         # Arrange
         html = tmp_path / "scripts.html"
         html.write_text("""<html><body>
@@ -242,15 +242,15 @@ class TestConvertiHtml:
 </body></html>""")
 
         # Act
-        risultato = file_a_testo(html)
+        result = file_to_text(html)
 
         # Assert
-        assert "alert" not in risultato
-        assert "color: red" not in risultato
-        assert "Testo visibile." in risultato
+        assert "alert" not in result
+        assert "color: red" not in result
+        assert "Testo visibile." in result
 
-    def test_rimuove_nav_header_footer(self, tmp_path):
-        """Elementi di navigazione devono essere rimossi."""
+    def test_removes_nav_header_footer(self, tmp_path):
+        """Navigation elements must be removed."""
         # Arrange
         html = tmp_path / "layout.html"
         html.write_text("""<html><body>
@@ -261,17 +261,17 @@ class TestConvertiHtml:
 </body></html>""")
 
         # Act
-        risultato = file_a_testo(html)
+        result = file_to_text(html)
 
         # Assert
-        assert "Contenuto principale." in risultato
-        assert "Home" not in risultato
-        assert "About" not in risultato
-        assert "Header del sito" not in risultato
-        assert "Copyright" not in risultato
+        assert "Contenuto principale." in result
+        assert "Home" not in result
+        assert "About" not in result
+        assert "Header del sito" not in result
+        assert "Copyright" not in result
 
-    def test_preferisce_main_content(self, tmp_path):
-        """Se presente, deve estrarre da <main> o <article>."""
+    def test_prefers_main_content(self, tmp_path):
+        """If present, it must extract from <main> or <article>."""
         # Arrange
         html = tmp_path / "article.html"
         html.write_text("""<html><body>
@@ -280,37 +280,37 @@ class TestConvertiHtml:
 </body></html>""")
 
         # Act
-        risultato = file_a_testo(html)
+        result = file_to_text(html)
 
         # Assert
-        assert "Articolo importante." in risultato
+        assert "Articolo importante." in result
 
-    def test_html_estensione_htm(self, tmp_path):
-        """Anche .htm deve funzionare come .html."""
+    def test_html_extension_htm(self, tmp_path):
+        """Also .htm must work like .html."""
         # Arrange
         htm = tmp_path / "pagina.htm"
         htm.write_text("<html><body><p>Testo HTM.</p></body></html>")
 
         # Act
-        risultato = file_a_testo(htm)
+        result = file_to_text(htm)
 
         # Assert
-        assert "Testo HTM." in risultato
+        assert "Testo HTM." in result
 
 
 # ===========================================================================
-# Test — Convertitore .pdf
+# Tests — .pdf converter
 # ===========================================================================
 
 
-class TestConvertiPdf:
-    """Test per il convertitore PDF."""
+class TestConvertPdf:
+    """Tests for the PDF converter."""
 
-    def test_estrae_testo_da_pdf(self, tmp_path):
-        """Un PDF con testo deve essere estratto correttamente."""
+    def test_extracts_text_from_pdf(self, tmp_path):
+        """A PDF with text must be extracted correctly."""
         import pymupdf
 
-        # Arrange — crea un PDF di test con pymupdf
+        # Arrange — create a test PDF with pymupdf
         pdf_path = tmp_path / "documento.pdf"
         doc = pymupdf.open()
         page = doc.new_page()
@@ -320,14 +320,14 @@ class TestConvertiPdf:
         doc.close()
 
         # Act
-        risultato = file_a_testo(pdf_path)
+        result = file_to_text(pdf_path)
 
         # Assert
-        assert "Primo paragrafo del documento PDF." in risultato
-        assert "Secondo paragrafo con contenuto." in risultato
+        assert "Primo paragrafo del documento PDF." in result
+        assert "Secondo paragrafo con contenuto." in result
 
-    def test_pdf_multipagina(self, tmp_path):
-        """Un PDF con più pagine deve estrarre testo da tutte."""
+    def test_multipage_pdf(self, tmp_path):
+        """A PDF with multiple pages must extract text from all."""
         import pymupdf
 
         # Arrange
@@ -340,15 +340,15 @@ class TestConvertiPdf:
         doc.close()
 
         # Act
-        risultato = file_a_testo(pdf_path)
+        result = file_to_text(pdf_path)
 
         # Assert
-        assert "Contenuto pagina 1." in risultato
-        assert "Contenuto pagina 2." in risultato
-        assert "Contenuto pagina 3." in risultato
+        assert "Contenuto pagina 1." in result
+        assert "Contenuto pagina 2." in result
+        assert "Contenuto pagina 3." in result
 
-    def test_rimuove_numeri_pagina_isolati(self, tmp_path):
-        """Numeri di pagina isolati su una riga devono essere rimossi."""
+    def test_removes_isolated_page_numbers(self, tmp_path):
+        """Isolated page numbers on a line must be removed."""
         import pymupdf
 
         # Arrange
@@ -356,30 +356,30 @@ class TestConvertiPdf:
         doc = pymupdf.open()
         page = doc.new_page()
         page.insert_text((72, 72), "Testo del documento.")
-        page.insert_text((300, 780), "1")  # numero di pagina in basso
+        page.insert_text((300, 780), "1")  # page number at the bottom
         doc.save(str(pdf_path))
         doc.close()
 
         # Act
-        risultato = file_a_testo(pdf_path)
+        result = file_to_text(pdf_path)
 
         # Assert
-        assert "Testo del documento." in risultato
-        # Il numero "1" isolato deve essere rimosso
-        lines = [line.strip() for line in risultato.split("\n") if line.strip()]
+        assert "Testo del documento." in result
+        # The isolated number "1" must be removed
+        lines = [line.strip() for line in result.split("\n") if line.strip()]
         assert "1" not in lines
 
 
 # ===========================================================================
-# Test — Convertitore .epub
+# Tests — .epub converter
 # ===========================================================================
 
 
-class TestConvertiEpub:
-    """Test per il convertitore EPUB."""
+class TestConvertEpub:
+    """Tests for the EPUB converter."""
 
-    def _make_epub(self, tmp_path: Path, capitoli: list[str]) -> Path:
-        """Helper: crea un EPUB minimale con i capitoli dati."""
+    def _make_epub(self, tmp_path: Path, chapters: list[str]) -> Path:
+        """Helper: creates a minimal EPUB with the given chapters."""
         from ebooklib import epub
 
         book = epub.EpubBook()
@@ -388,13 +388,13 @@ class TestConvertiEpub:
         book.set_language("it")
 
         items = []
-        for i, testo in enumerate(capitoli):
+        for i, text in enumerate(chapters):
             ch = epub.EpubHtml(
                 title=f"Capitolo {i + 1}",
                 file_name=f"chap_{i}.xhtml",
                 lang="it",
             )
-            ch.content = f"<html><body><p>{testo}</p></body></html>".encode()
+            ch.content = f"<html><body><p>{text}</p></body></html>".encode()
             book.add_item(ch)
             items.append(ch)
 
@@ -407,8 +407,8 @@ class TestConvertiEpub:
         epub.write_epub(str(epub_path), book)
         return epub_path
 
-    def test_estrae_testo_capitoli(self, tmp_path):
-        """Un EPUB con capitoli deve estrarre il testo di ciascuno."""
+    def test_extracts_chapter_text(self, tmp_path):
+        """An EPUB with chapters must extract the text of each."""
         # Arrange
         epub_path = self._make_epub(
             tmp_path,
@@ -416,25 +416,25 @@ class TestConvertiEpub:
         )
 
         # Act
-        risultato = file_a_testo(epub_path)
+        result = file_to_text(epub_path)
 
         # Assert
-        assert "Contenuto del primo capitolo." in risultato
-        assert "Contenuto del secondo capitolo." in risultato
+        assert "Contenuto del primo capitolo." in result
+        assert "Contenuto del secondo capitolo." in result
 
-    def test_epub_singolo_capitolo(self, tmp_path):
-        """Un EPUB con un solo capitolo deve funzionare."""
+    def test_single_chapter_epub(self, tmp_path):
+        """An EPUB with a single chapter must work."""
         # Arrange
         epub_path = self._make_epub(tmp_path, ["Unico capitolo del libro."])
 
         # Act
-        risultato = file_a_testo(epub_path)
+        result = file_to_text(epub_path)
 
         # Assert
-        assert "Unico capitolo del libro." in risultato
+        assert "Unico capitolo del libro." in result
 
-    def test_epub_rimuove_script(self, tmp_path):
-        """Eventuali tag script nell'EPUB devono essere rimossi."""
+    def test_epub_removes_script(self, tmp_path):
+        """Any script tags in the EPUB must be removed."""
         from ebooklib import epub
 
         # Arrange
@@ -457,8 +457,8 @@ class TestConvertiEpub:
         epub.write_epub(str(epub_path), book)
 
         # Act
-        risultato = file_a_testo(epub_path)
+        result = file_to_text(epub_path)
 
         # Assert
-        assert "alert" not in risultato
-        assert "Testo sicuro." in risultato
+        assert "alert" not in result
+        assert "Testo sicuro." in result

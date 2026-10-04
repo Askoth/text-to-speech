@@ -1,7 +1,7 @@
 [project]
 name = "text-to-speech"
 version = "0.1.0"
-description = "Add your description here"
+description = "Read text files aloud in Italian using Piper TTS, with a web UI and CLI."
 readme = "README.md"
 authors = [
     { name = "Marcelo Oliveira", email = "askoth@gmail.com" }

@@ -1,9 +1,9 @@
 """
 converters.py
-Convertitori da file di vari formati a testo piano per il TTS.
+Converters from files of various formats to plain text for TTS.
 
-Formati supportati: .md, .txt, .epub, .docx, .html, .htm, .pdf
-Ogni convertitore restituisce testo pulito pronto per la sintesi vocale.
+Supported formats: .md, .txt, .epub, .docx, .html, .htm, .pdf
+Each converter returns clean text ready for speech synthesis.
 """
 
 import logging
@@ -17,88 +17,88 @@ log = logging.getLogger(__name__)
 SUPPORTED_EXTENSIONS = {".md", ".txt", ".epub", ".docx", ".html", ".htm", ".pdf"}
 
 
-def file_a_testo(percorso: Path) -> str:
-    """Converte un file in testo piano in base all'estensione.
+def file_to_text(path: Path) -> str:
+    """Convert a file to plain text based on its extension.
 
     Parameters
     ----------
-    percorso : Path
-        Percorso al file da convertire.
+    path : Path
+        Path to the file to convert.
 
     Returns
     -------
     str
-        Testo piano estratto dal file.
+        Plain text extracted from the file.
 
     Raises
     ------
     ValueError
-        Se l'estensione del file non è supportata.
+        If the file extension is not supported.
     """
-    ext = percorso.suffix.lower()
-    convertitori = {
-        ".md": _converti_markdown,
-        ".txt": _converti_testo,
-        ".epub": _converti_epub,
-        ".docx": _converti_docx,
-        ".html": _converti_html,
-        ".htm": _converti_html,
-        ".pdf": _converti_pdf,
+    ext = path.suffix.lower()
+    converters = {
+        ".md": _convert_markdown,
+        ".txt": _convert_text,
+        ".epub": _convert_epub,
+        ".docx": _convert_docx,
+        ".html": _convert_html,
+        ".htm": _convert_html,
+        ".pdf": _convert_pdf,
     }
-    convertitore = convertitori.get(ext)
-    if not convertitore:
-        validi = ", ".join(sorted(SUPPORTED_EXTENSIONS))
-        raise ValueError(f"Formato '{ext}' non supportato. Formati validi: {validi}")
-    return convertitore(percorso)
+    converter = converters.get(ext)
+    if not converter:
+        valid = ", ".join(sorted(SUPPORTED_EXTENSIONS))
+        raise ValueError(f"Format '{ext}' not supported. Valid formats: {valid}")
+    return converter(path)
 
 
-# ─── Testo puro ──────────────────────────────────────────────────────────────
+# ─── Plain text ──────────────────────────────────────────────────────────────
 
 
-def _converti_testo(percorso: Path) -> str:
-    """Legge un file di testo puro. Nessuna conversione necessaria."""
-    return percorso.read_text(encoding="utf-8").strip()
+def _convert_text(path: Path) -> str:
+    """Read a plain-text file. No conversion required."""
+    return path.read_text(encoding="utf-8").strip()
 
 
 # ─── Markdown ─────────────────────────────────────────────────────────────────
 
 
-def _converti_markdown(percorso: Path) -> str:
-    """Converte Markdown in testo piano via pandoc o fallback regex.
+def _convert_markdown(path: Path) -> str:
+    """Convert Markdown to plain text via pandoc or regex fallback.
 
-    Usa pandoc se disponibile nel PATH, altrimenti un fallback regex
-    che rimuove la sintassi Markdown più comune.
+    Uses pandoc if available in PATH, otherwise a regex fallback
+    that strips the most common Markdown syntax.
     """
     if shutil.which("pandoc"):
         result = subprocess.run(
-            ["pandoc", str(percorso), "-t", "plain", "--wrap=none"],
+            ["pandoc", str(path), "-t", "plain", "--wrap=none"],
             capture_output=True,
             text=True,
             timeout=30,
         )
         if result.returncode == 0:
             return result.stdout
-        log.warning("pandoc ha restituito un errore, uso il fallback regex.")
+        log.warning("pandoc returned an error, using the regex fallback.")
 
-    testo = percorso.read_text(encoding="utf-8")
-    testo = re.sub(r"#{1,6}\s*", "", testo)
-    testo = re.sub(r"\*\*(.+?)\*\*", r"\1", testo)
-    testo = re.sub(r"\*(.+?)\*", r"\1", testo)
-    testo = re.sub(r"`{1,3}.*?`{1,3}", "", testo, flags=re.DOTALL)
-    testo = re.sub(r"!\[.*?\]\(.+?\)", "", testo)  # immagini (PRIMA dei link)
-    testo = re.sub(r"\[(.+?)\]\(.+?\)", r"\1", testo)  # link → solo testo
-    testo = re.sub(r"[-*_]{3,}", "", testo)
-    testo = re.sub(r"^\s*[-*+]\s+", "", testo, flags=re.MULTILINE)
-    testo = re.sub(r"^\|.*\|$", "", testo, flags=re.MULTILINE)
-    testo = re.sub(r"\n{3,}", "\n\n", testo)
-    return testo.strip()
+    text = path.read_text(encoding="utf-8")
+    text = re.sub(r"#{1,6}\s*", "", text)
+    text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)
+    text = re.sub(r"\*(.+?)\*", r"\1", text)
+    text = re.sub(r"`{1,3}.*?`{1,3}", "", text, flags=re.DOTALL)
+    text = re.sub(r"!\[.*?\]\(.+?\)", "", text)  # images (BEFORE links)
+    text = re.sub(r"\[(.+?)\]\(.+?\)", r"\1", text)  # links → text only
+    text = re.sub(r"[-*_]{3,}", "", text)
+    text = re.sub(r"^\s*[-*+]\s+", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^\|.*\|$", "", text, flags=re.MULTILINE)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
 
 
 # ─── EPUB ─────────────────────────────────────────────────────────────────────
 
 
-def _converti_epub(percorso: Path) -> str:
-    """Estrae testo da un EPUB, capitolo per capitolo."""
+def _convert_epub(path: Path) -> str:
+    """Extract text from an EPUB, chapter by chapter."""
     import warnings
 
     import ebooklib
@@ -107,8 +107,8 @@ def _converti_epub(percorso: Path) -> str:
 
     warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
 
-    book = epub.read_epub(str(percorso), options={"ignore_ncx": True})
-    testi = []
+    book = epub.read_epub(str(path), options={"ignore_ncx": True})
+    texts = []
 
     for item in book.get_items_of_type(ebooklib.ITEM_DOCUMENT):
         soup = BeautifulSoup(item.get_content(), "lxml")
@@ -116,33 +116,33 @@ def _converti_epub(percorso: Path) -> str:
             tag.decompose()
         text = soup.get_text(separator="\n\n").strip()
         if text:
-            testi.append(text)
+            texts.append(text)
 
-    risultato = "\n\n".join(testi)
-    risultato = re.sub(r"\n{3,}", "\n\n", risultato)
-    return risultato.strip()
+    result = "\n\n".join(texts)
+    result = re.sub(r"\n{3,}", "\n\n", result)
+    return result.strip()
 
 
 # ─── DOCX ─────────────────────────────────────────────────────────────────────
 
 
-def _converti_docx(percorso: Path) -> str:
-    """Estrae testo da un file Word (.docx) paragrafo per paragrafo."""
+def _convert_docx(path: Path) -> str:
+    """Extract text from a Word file (.docx) paragraph by paragraph."""
     from docx import Document
 
-    doc = Document(str(percorso))
-    paragrafi = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
-    return "\n\n".join(paragrafi)
+    doc = Document(str(path))
+    paragraphs = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
+    return "\n\n".join(paragraphs)
 
 
 # ─── HTML ─────────────────────────────────────────────────────────────────────
 
 
-def _converti_html(percorso: Path) -> str:
-    """Estrae testo da una pagina HTML, rimuovendo navigazione e script."""
+def _convert_html(path: Path) -> str:
+    """Extract text from an HTML page, removing navigation and scripts."""
     from bs4 import BeautifulSoup
 
-    html = percorso.read_text(encoding="utf-8")
+    html = path.read_text(encoding="utf-8")
     soup = BeautifulSoup(html, "lxml")
 
     for tag in soup(["script", "style", "nav", "header", "footer", "aside"]):
@@ -157,25 +157,25 @@ def _converti_html(percorso: Path) -> str:
 # ─── PDF ──────────────────────────────────────────────────────────────────────
 
 
-def _converti_pdf(percorso: Path) -> str:
-    """Estrae testo da un PDF pagina per pagina.
+def _convert_pdf(path: Path) -> str:
+    """Extract text from a PDF page by page.
 
-    Rimuove numeri di pagina isolati e normalizza spaziatura.
-    Non gestisce PDF basati su immagini (serve OCR).
+    Removes isolated page numbers and normalizes spacing.
+    Does not handle image-based PDFs (requires OCR).
     """
     import pymupdf
 
-    doc = pymupdf.open(str(percorso))
-    testi = []
+    doc = pymupdf.open(str(path))
+    texts = []
 
     for page in doc:
         text = page.get_text("text").strip()
         if text:
-            testi.append(text)
+            texts.append(text)
     doc.close()
 
-    risultato = "\n\n".join(testi)
-    # Rimuovi numeri di pagina isolati (righe con solo 1-4 cifre)
-    risultato = re.sub(r"^\s*\d{1,4}\s*$", "", risultato, flags=re.MULTILINE)
-    risultato = re.sub(r"\n{3,}", "\n\n", risultato)
-    return risultato.strip()
+    result = "\n\n".join(texts)
+    # Remove isolated page numbers (lines with only 1-4 digits)
+    result = re.sub(r"^\s*\d{1,4}\s*$", "", result, flags=re.MULTILINE)
+    result = re.sub(r"\n{3,}", "\n\n", result)
+    return result.strip()

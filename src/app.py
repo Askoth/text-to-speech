@@ -1,10 +1,10 @@
 """
 app.py
-Server Flask per la web UI del TTS reader.
+Flask server for the TTS reader web UI.
 
-Uso:
+Usage:
     python app.py
-    # Apre http://localhost:5000
+    # Opens http://localhost:5000
 """
 
 import logging
@@ -25,16 +25,16 @@ from src.converters import SUPPORTED_EXTENSIONS
 from src.translations import get_lang, tr
 from src.tts_engine import TTSEngine
 
-# Flask deve cercare templates/ e static/ nella root del progetto
+# Flask must look for templates/ and static/ at the project root
 template_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "templates")
 static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
 app = Flask(__name__, template_folder=template_dir, static_folder=static_dir)
-app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB (EPUB/PDF possono essere grandi)
+app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50 MB (EPUB/PDF can be large)
 
 engine = TTSEngine()
 log = logging.getLogger(__name__)
 
-# Derivare metadati voci dalla sorgente unica
+# Derive voice metadata from the single source of truth
 VOICES_META = [
     {
         "id": v.name,
@@ -87,7 +87,7 @@ def api_voices():
 
 
 def _sanitize_filename(raw_name: str) -> str:
-    """Estrae il nome base e rimuove caratteri non sicuri."""
+    """Extract the base name and remove unsafe characters."""
     base = PurePosixPath(raw_name).name
     ext_pattern = "|".join(re.escape(ext) for ext in sorted(SUPPORTED_EXTENSIONS))
     if not re.match(rf"^[\w\-. ]+({ext_pattern})$", base, re.UNICODE):
@@ -97,7 +97,7 @@ def _sanitize_filename(raw_name: str) -> str:
 
 @app.route("/api/load", methods=["POST"])
 def api_load():
-    """Carica un file e restituisce i paragrafi."""
+    """Load a file and return the paragraphs."""
     lang = get_lang(request)
 
     if "file" not in request.files:
@@ -106,8 +106,8 @@ def api_load():
     file = request.files["file"]
     safe_name = _sanitize_filename(file.filename or "")
     if not safe_name:
-        validi = ", ".join(sorted(SUPPORTED_EXTENSIONS))
-        return jsonify({"error": tr(lang, "error.unsupported_format", formats=validi)}), 400
+        valid = ", ".join(sorted(SUPPORTED_EXTENSIONS))
+        return jsonify({"error": tr(lang, "error.unsupported_format", formats=valid)}), 400
 
     ext = Path(safe_name).suffix.lower()
     with tempfile.NamedTemporaryFile(suffix=ext, delete=False, mode="wb") as tmp:
@@ -132,7 +132,7 @@ def api_load():
 
 @app.route("/api/audio/<int:idx>")
 def api_audio(idx):
-    """Restituisce l'MP3 sintetizzato per il paragrafo dato."""
+    """Return the synthesized MP3 for the given paragraph."""
     lang = get_lang(request)
     voice = request.args.get("voice", DEFAULT_VOICE)
     if voice not in ALL_VOICES:
@@ -146,7 +146,7 @@ def api_audio(idx):
     except IndexError:
         return jsonify({"error": tr(lang, "error.paragraph_not_found", idx=idx)}), 404
     except Exception:
-        log.exception("Errore sintesi paragrafo %d con voce %s", idx, voice)
+        log.exception("Paragraph synthesis error %d with voice %s", idx, voice)
         return jsonify({"error": tr(lang, "error.synthesis_failed")}), 500
 
     return Response(mp3_bytes, mimetype="audio/mpeg")
@@ -154,7 +154,7 @@ def api_audio(idx):
 
 @app.route("/api/prefetch/<int:idx>")
 def api_prefetch(idx):
-    """Avvia prefetch del paragrafo in background."""
+    """Start prefetch of the paragraph in the background."""
     voice = request.args.get("voice", DEFAULT_VOICE)
     engine.prefetch(idx, voice)
     return jsonify({"status": "ok"})
@@ -162,7 +162,7 @@ def api_prefetch(idx):
 
 @app.route("/api/save", methods=["POST"])
 def api_save():
-    """Genera e scarica il file MP3 completo."""
+    """Generate and download the full MP3 file."""
     lang = get_lang(request)
     data = request.get_json(silent=True) or {}
     voice = data.get("voice", DEFAULT_VOICE)
@@ -189,10 +189,10 @@ def api_save():
 
 
 if __name__ == "__main__":  # pragma: no cover
-    from src.config import verifica_prerequisiti
+    from src.config import check_prerequisites
 
-    errori = verifica_prerequisiti(modalita="web")
-    if errori:
+    errors = check_prerequisites(mode="web")
+    if errors:
         raise SystemExit(1)
 
     debug = os.environ.get("FLASK_DEBUG", "0") == "1"

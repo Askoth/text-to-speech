@@ -140,20 +140,20 @@ The reading style is automatically suggested based on file format:
 source venv/bin/activate
 
 # Read with default voice (Giuseppe, multilingual)
-python leggi.py file.md
+python reader.py file.md
 
 # Choose a voice
-python leggi.py file.md --voice isabella
+python reader.py file.md --voice isabella
 
 # English voices
-python leggi.py document.md --voice andrew
-python leggi.py document.md --voice ava
+python reader.py document.md --voice andrew
+python reader.py document.md --voice ava
 
 # Offline voice (no internet required)
-python leggi.py file.md --voice paola
+python reader.py file.md --voice paola
 
 # Save as MP3
-python leggi.py file.md --voice giuseppe --salva
+python reader.py file.md --voice giuseppe --salva
 ```
 
 **Note:** Reading styles are only available in the web interface. The CLI uses
@@ -212,7 +212,7 @@ for a detailed overview of all mechanisms in place.
 %%{init: {'theme': 'neutral'}}%%
 graph LR
     browser["Browser"]
-    cli["CLI (leggi.py)"]
+    cli["CLI (reader.py)"]
     flask["Flask Server"]
     tts_engine["TTSEngine"]
     conv["converters.py"]
@@ -257,7 +257,7 @@ text-to-speech/
 ├── synthesis.py        # Speech synthesis functions (Piper, Edge)
 ├── config.py           # Voice configuration, model paths, constants
 ├── translations.py     # Backend translations (API messages, styles)
-├── leggi.py            # CLI: terminal reading
+├── reader.py            # CLI: terminal reading
 ├── converters.py       # Format converters → plain text
 ├── static/
 │   ├── style.css       # Design system (Ink & Amber)

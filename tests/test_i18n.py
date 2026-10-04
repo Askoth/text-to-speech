@@ -1,9 +1,9 @@
 """
 tests/test_i18n.py
-Test suite per il sistema di internazionalizzazione (i18n).
+Test suite for the internationalization (i18n) system.
 
-Copre: translations.py (get_lang, tr)
-       e gli endpoint API con parametro ?lang=.
+Covers: translations.py (get_lang, tr)
+       and the API endpoints with the ?lang= parameter.
 """
 
 from unittest.mock import MagicMock
@@ -16,22 +16,22 @@ from src.translations import (
 )
 
 # ===========================================================================
-# Test — translations.get_lang()
+# Tests — translations.get_lang()
 # ===========================================================================
 
 
 class TestGetLang:
-    """Determina la lingua dalla richiesta HTTP."""
+    """Determines the language from the HTTP request."""
 
     def _make_request(self, lang_param="", accept_language=""):
-        """Crea un mock di Flask request con query param e header."""
+        """Create a mock Flask request with query param and header."""
         req = MagicMock()
         req.args = {"lang": lang_param} if lang_param else {}
         req.headers = {"Accept-Language": accept_language} if accept_language else {}
         return req
 
-    def test_default_senza_indicazioni(self):
-        """Senza param né header deve restituire la lingua di default."""
+    def test_default_no_indications(self):
+        """Without a param or header it must return the default language."""
         # Arrange
         req = self._make_request()
 
@@ -42,7 +42,7 @@ class TestGetLang:
         assert lang == DEFAULT_LANG
 
     def test_query_param_it(self):
-        """?lang=it deve restituire 'it'."""
+        """?lang=it must return 'it'."""
         # Arrange
         req = self._make_request(lang_param="it")
 
@@ -53,7 +53,7 @@ class TestGetLang:
         assert lang == "it"
 
     def test_query_param_en(self):
-        """?lang=en deve restituire 'en'."""
+        """?lang=en must return 'en'."""
         # Arrange
         req = self._make_request(lang_param="en")
 
@@ -64,7 +64,7 @@ class TestGetLang:
         assert lang == "en"
 
     def test_query_param_case_insensitive(self):
-        """?lang=EN (maiuscolo) deve restituire 'en'."""
+        """?lang=EN (uppercase) must return 'en'."""
         # Arrange
         req = self._make_request(lang_param="EN")
 
@@ -74,8 +74,8 @@ class TestGetLang:
         # Assert
         assert lang == "en"
 
-    def test_query_param_lingua_non_supportata(self):
-        """?lang=fr (non supportata) deve cadere sul default."""
+    def test_query_param_unsupported_language(self):
+        """?lang=fr (unsupported) must fall back to the default."""
         # Arrange
         req = self._make_request(lang_param="fr")
 
@@ -86,7 +86,7 @@ class TestGetLang:
         assert lang == DEFAULT_LANG
 
     def test_accept_language_header_it(self):
-        """Accept-Language: it-IT deve restituire 'it'."""
+        """Accept-Language: it-IT must return 'it'."""
         # Arrange
         req = self._make_request(accept_language="it-IT,it;q=0.9")
 
@@ -97,7 +97,7 @@ class TestGetLang:
         assert lang == "it"
 
     def test_accept_language_header_en(self):
-        """Accept-Language: en-US,en;q=0.9 deve restituire 'en'."""
+        """Accept-Language: en-US,en;q=0.9 must return 'en'."""
         # Arrange
         req = self._make_request(accept_language="en-US,en;q=0.9")
 
@@ -108,7 +108,7 @@ class TestGetLang:
         assert lang == "en"
 
     def test_accept_language_header_fallback(self):
-        """Accept-Language: fr-FR (non supportata) deve cadere sul default."""
+        """Accept-Language: fr-FR (unsupported) must fall back to the default."""
         # Arrange
         req = self._make_request(accept_language="fr-FR,fr;q=0.9")
 
@@ -118,8 +118,8 @@ class TestGetLang:
         # Assert
         assert lang == DEFAULT_LANG
 
-    def test_query_param_ha_priorita_su_header(self):
-        """Il parametro ?lang= deve avere priorità sull'header Accept-Language."""
+    def test_query_param_takes_priority_over_header(self):
+        """The ?lang= param must take priority over the Accept-Language header."""
         # Arrange
         req = self._make_request(lang_param="en", accept_language="it-IT")
 
@@ -131,31 +131,31 @@ class TestGetLang:
 
 
 # ===========================================================================
-# Test — translations.tr()
+# Tests — translations.tr()
 # ===========================================================================
 
 
 class TestTr:
-    """Traduzione con interpolazione e fallback."""
+    """Translation with interpolation and fallback."""
 
-    def test_traduzione_it(self):
-        """tr() con lingua 'it' deve restituire il messaggio italiano."""
+    def test_translation_it(self):
+        """tr() with language 'it' must return the Italian message."""
         # Act
         msg = tr("it", "error.no_file")
 
         # Assert
         assert msg == "Nessun file inviato"
 
-    def test_traduzione_en(self):
-        """tr() con lingua 'en' deve restituire il messaggio inglese."""
+    def test_translation_en(self):
+        """tr() with language 'en' must return the English message."""
         # Act
         msg = tr("en", "error.no_file")
 
         # Assert
         assert msg == "No file provided"
 
-    def test_interpolazione_singola(self):
-        """tr() deve interpolare correttamente un parametro."""
+    def test_single_interpolation(self):
+        """tr() must correctly interpolate a parameter."""
         # Act
         msg = tr("it", "error.invalid_voice", voice="mario")
 
@@ -163,8 +163,8 @@ class TestTr:
         assert "mario" in msg
         assert "{voice}" not in msg
 
-    def test_interpolazione_multipla(self):
-        """tr() deve interpolare più parametri."""
+    def test_multiple_interpolation(self):
+        """tr() must interpolate multiple parameters."""
         # Act
         msg = tr("en", "error.unsupported_format", formats=".md, .txt")
 
@@ -172,45 +172,45 @@ class TestTr:
         assert ".md, .txt" in msg
         assert "{formats}" not in msg
 
-    def test_fallback_lingua_sconosciuta(self):
-        """tr() con lingua non supportata deve usare il default."""
+    def test_fallback_unknown_language(self):
+        """tr() with an unsupported language must use the default."""
         # Act
         msg = tr("fr", "error.no_file")
 
         # Assert
         assert msg == tr(DEFAULT_LANG, "error.no_file")
 
-    def test_chiave_inesistente(self):
-        """tr() con chiave inesistente deve restituire la chiave stessa."""
+    def test_nonexistent_key(self):
+        """tr() with a nonexistent key must return the key itself."""
         # Act
-        msg = tr("it", "error.chiave_fantasma")
+        msg = tr("it", "error.ghost_key")
 
         # Assert
-        assert msg == "error.chiave_fantasma"
+        assert msg == "error.ghost_key"
 
-    def test_tutte_le_chiavi_esistono_in_entrambe_le_lingue(self):
-        """Ogni chiave in 'it' deve esistere anche in 'en' e viceversa."""
+    def test_all_keys_exist_in_both_languages(self):
+        """Every key in 'it' must also exist in 'en' and vice versa."""
         # Arrange
-        chiavi_it = {k for k in TRANSLATIONS["it"] if k != "styles"}
-        chiavi_en = {k for k in TRANSLATIONS["en"] if k != "styles"}
+        keys_it = {k for k in TRANSLATIONS["it"] if k != "styles"}
+        keys_en = {k for k in TRANSLATIONS["en"] if k != "styles"}
 
         # Assert
-        assert chiavi_it == chiavi_en, (
-            f"Chiavi mancanti — solo in IT: {chiavi_it - chiavi_en}, "
-            f"solo in EN: {chiavi_en - chiavi_it}"
+        assert keys_it == keys_en, (
+            f"Missing keys — only in IT: {keys_it - keys_en}, "
+            f"only in EN: {keys_en - keys_it}"
         )
 
 
 # ===========================================================================
-# Test — Endpoint API con parametro ?lang=
+# Tests — API endpoints with the ?lang= parameter
 # ===========================================================================
 
 
 class TestEndpointI18n:
-    """Verifica che gli endpoint restituiscano messaggi nella lingua richiesta."""
+    """Verify that the endpoints return messages in the requested language."""
 
-    def test_load_errore_in_italiano(self, client):
-        """POST /api/load?lang=it senza file deve restituire errore in italiano."""
+    def test_load_error_in_italian(self, client):
+        """POST /api/load?lang=it without a file must return an Italian error."""
         # Act
         response = client.post("/api/load?lang=it", data={})
 
@@ -219,8 +219,8 @@ class TestEndpointI18n:
         data = response.get_json()
         assert data["error"] == "Nessun file inviato"
 
-    def test_load_errore_in_inglese(self, client):
-        """POST /api/load?lang=en senza file deve restituire errore in inglese."""
+    def test_load_error_in_english(self, client):
+        """POST /api/load?lang=en without a file must return an English error."""
         # Act
         response = client.post("/api/load?lang=en", data={})
 
@@ -229,8 +229,8 @@ class TestEndpointI18n:
         data = response.get_json()
         assert data["error"] == "No file provided"
 
-    def test_audio_errore_voce_invalida_en(self, client):
-        """GET /api/audio/0?voice=xxx&lang=en deve restituire errore in inglese."""
+    def test_audio_error_invalid_voice_en(self, client):
+        """GET /api/audio/0?voice=xxx&lang=en must return an English error."""
         # Act
         response = client.get("/api/audio/0?voice=xxx&lang=en")
 
@@ -239,8 +239,8 @@ class TestEndpointI18n:
         data = response.get_json()
         assert "not valid" in data["error"]
 
-    def test_audio_errore_voce_invalida_it(self, client):
-        """GET /api/audio/0?voice=xxx&lang=it deve restituire errore in italiano."""
+    def test_audio_error_invalid_voice_it(self, client):
+        """GET /api/audio/0?voice=xxx&lang=it must return an Italian error."""
         # Act
         response = client.get("/api/audio/0?voice=xxx&lang=it")
 
@@ -249,8 +249,8 @@ class TestEndpointI18n:
         data = response.get_json()
         assert "non valida" in data["error"]
 
-    def test_save_errore_no_file_en(self, client):
-        """POST /api/save?lang=en senza file caricato deve restituire errore in inglese."""
+    def test_save_error_no_file_en(self, client):
+        """POST /api/save?lang=en without a loaded file must return an English error."""
         # Act
         response = client.post(
             "/api/save?lang=en",
@@ -263,7 +263,7 @@ class TestEndpointI18n:
         data = response.get_json()
         assert data["error"] == "No file loaded"
 
-    def test_default_lingua_senza_param(self, client):
+    def test_default_language_without_param(self, client):
         """Without ?lang=, errors must be in the default language (English)."""
         # Act
         response = client.post("/api/load", data={})

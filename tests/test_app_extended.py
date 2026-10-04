@@ -1,9 +1,9 @@
 """
 tests/test_app_extended.py
-Test aggiuntivi per app.py: security headers, sanitize_filename,
+Additional tests for app.py: security headers, sanitize_filename,
 endpoint success paths, prefetch endpoint.
 
-Complementa test_app.py (che copre validazione input e error cases).
+Complements test_app.py (which covers input validation and error cases).
 """
 
 import io
@@ -12,13 +12,13 @@ from unittest.mock import patch
 import pytest
 
 # ===========================================================================
-# Fixture
+# Fixtures
 # ===========================================================================
 
 
 @pytest.fixture()
-def client_con_testo(client):
-    """Flask test client con un documento già caricato nell'engine."""
+def client_with_text(client):
+    """Flask test client with a document already loaded in the engine."""
     from src import app as flask_app
 
     flask_app.engine._paragraphs = [
@@ -31,15 +31,15 @@ def client_con_testo(client):
 
 
 # ===========================================================================
-# Test — Security Headers
+# Tests — Security Headers
 # ===========================================================================
 
 
 class TestSecurityHeaders:
-    """Verifica che gli header di sicurezza siano presenti su tutte le risposte."""
+    """Verify that the security headers are present on all responses."""
 
     def test_x_content_type_options(self, client):
-        """Ogni risposta deve avere X-Content-Type-Options: nosniff."""
+        """Every response must have X-Content-Type-Options: nosniff."""
         # Act
         response = client.get("/")
 
@@ -47,7 +47,7 @@ class TestSecurityHeaders:
         assert response.headers.get("X-Content-Type-Options") == "nosniff"
 
     def test_x_frame_options(self, client):
-        """Ogni risposta deve avere X-Frame-Options: DENY."""
+        """Every response must have X-Frame-Options: DENY."""
         # Act
         response = client.get("/")
 
@@ -55,15 +55,15 @@ class TestSecurityHeaders:
         assert response.headers.get("X-Frame-Options") == "DENY"
 
     def test_referrer_policy(self, client):
-        """Ogni risposta deve avere Referrer-Policy impostato."""
+        """Every response must have Referrer-Policy set."""
         # Act
         response = client.get("/")
 
         # Assert
         assert response.headers.get("Referrer-Policy") == "strict-origin-when-cross-origin"
 
-    def test_headers_presenti_su_api(self, client):
-        """Gli header di sicurezza devono essere presenti anche sulle API."""
+    def test_headers_present_on_api(self, client):
+        """The security headers must be present on the API responses too."""
         # Act
         response = client.get("/api/voices")
 
@@ -71,76 +71,76 @@ class TestSecurityHeaders:
         assert response.headers.get("X-Content-Type-Options") == "nosniff"
         assert response.headers.get("X-Frame-Options") == "DENY"
 
-    def test_headers_presenti_su_errori(self, client):
-        """Gli header devono essere presenti anche su risposte di errore."""
+    def test_headers_present_on_errors(self, client):
+        """The headers must be present on error responses too."""
         # Act
-        response = client.get("/api/audio/0")  # nessun file caricato → 400
+        response = client.get("/api/audio/0")  # no file loaded -> 400
 
         # Assert
         assert response.headers.get("X-Content-Type-Options") == "nosniff"
 
 
 # ===========================================================================
-# Test — _sanitize_filename
+# Tests — _sanitize_filename
 # ===========================================================================
 
 
 class TestSanitizeFilename:
-    """Test per la funzione di sanitizzazione nomi file."""
+    """Tests for the filename sanitization function."""
 
     def _sanitize(self, name: str) -> str:
         from src.app import _sanitize_filename
 
         return _sanitize_filename(name)
 
-    def test_filename_valido_semplice(self):
-        """Un nome file .md semplice deve passare invariato."""
+    def test_simple_valid_filename(self):
+        """A simple .md filename must pass through unchanged."""
         assert self._sanitize("documento.md") == "documento.md"
 
-    def test_filename_con_spazi(self):
-        """Nomi con spazi devono essere accettati."""
+    def test_filename_with_spaces(self):
+        """Names with spaces must be accepted."""
         assert self._sanitize("il mio file.md") == "il mio file.md"
 
-    def test_filename_con_trattini_e_underscore(self):
-        """Trattini e underscore devono essere accettati."""
+    def test_filename_with_hyphens_and_underscore(self):
+        """Hyphens and underscores must be accepted."""
         assert self._sanitize("mio-file_v2.md") == "mio-file_v2.md"
 
-    def test_formato_non_supportato_rifiutato(self):
-        """File con formato non supportato devono essere rifiutati."""
+    def test_unsupported_format_rejected(self):
+        """Files with an unsupported format must be rejected."""
         assert self._sanitize("file.csv") == ""
         assert self._sanitize("file.py") == ""
         assert self._sanitize("file.xlsx") == ""
         assert self._sanitize("file.pptx") == ""
 
-    def test_path_traversal_bloccato(self):
-        """Tentativi di path traversal devono essere neutralizzati."""
-        # Il path traversal viene bloccato da PurePosixPath.name
-        risultato = self._sanitize("../../../etc/passwd.md")
-        # Deve estrarre solo il nome base
-        assert "/" not in risultato
-        assert ".." not in risultato
+    def test_path_traversal_blocked(self):
+        """Path traversal attempts must be neutralized."""
+        # Path traversal is blocked by PurePosixPath.name
+        result = self._sanitize("../../../etc/passwd.md")
+        # It must extract only the base name
+        assert "/" not in result
+        assert ".." not in result
 
-    def test_filename_vuoto_rifiutato(self):
-        """Un nome vuoto deve essere rifiutato."""
+    def test_empty_filename_rejected(self):
+        """An empty name must be rejected."""
         assert self._sanitize("") == ""
 
-    def test_filename_solo_estensione_rifiutato(self):
-        """Il solo '.md' senza nome deve essere rifiutato."""
+    def test_only_extension_rejected(self):
+        """A lone '.md' with no name must be rejected."""
         assert self._sanitize(".md") == ""
 
-    def test_filename_con_caratteri_speciali_rifiutato(self):
-        """Caratteri speciali (;, &, |, etc.) devono causare rifiuto."""
+    def test_filename_with_special_chars_rejected(self):
+        """Special characters (;, &, |, etc.) must cause rejection."""
         assert self._sanitize("file;rm -rf.md") == ""
         assert self._sanitize("file|cat.md") == ""
         assert self._sanitize("file$(cmd).md") == ""
 
-    def test_filename_unicode_accettato(self):
-        """Nomi con caratteri unicode (accenti) devono essere accettati."""
-        risultato = self._sanitize("caffè.md")
-        assert risultato == "caffè.md"
+    def test_unicode_filename_accepted(self):
+        """Names with unicode characters (accents) must be accepted."""
+        result = self._sanitize("caffè.md")
+        assert result == "caffè.md"
 
-    def test_tutti_i_formati_supportati_accettati(self):
-        """Tutti i formati supportati devono essere accettati."""
+    def test_all_supported_formats_accepted(self):
+        """All supported formats must be accepted."""
         assert self._sanitize("libro.epub") == "libro.epub"
         assert self._sanitize("documento.docx") == "documento.docx"
         assert self._sanitize("pagina.html") == "pagina.html"
@@ -149,24 +149,24 @@ class TestSanitizeFilename:
         assert self._sanitize("nota.txt") == "nota.txt"
         assert self._sanitize("readme.md") == "readme.md"
 
-    def test_doppia_estensione_rifiutata(self):
-        """Filename con double extension sospetta deve essere gestito."""
-        # "file.php.md" contiene il punto nel nome, che è permesso
-        risultato = self._sanitize("file.php.md")
-        # Il regex ammette il punto, quindi passa — è un file .md valido
-        assert risultato == "file.php.md"
+    def test_double_extension_handled(self):
+        """A suspicious double-extension filename must be handled."""
+        # "file.php.md" contains a dot in the name, which is allowed
+        result = self._sanitize("file.php.md")
+        # The regex allows the dot, so it passes — it is a valid .md file
+        assert result == "file.php.md"
 
 
 # ===========================================================================
-# Test — /api/audio success path
+# Tests — /api/audio success path
 # ===========================================================================
 
 
 class TestAudioEndpointSuccess:
-    """Test per il percorso di successo dell'endpoint audio."""
+    """Tests for the success path of the audio endpoint."""
 
-    def test_audio_restituisce_mp3(self, client_con_testo):
-        """GET /api/audio/0 con file caricato deve restituire audio/mpeg."""
+    def test_audio_returns_mp3(self, client_with_text):
+        """GET /api/audio/0 with a loaded file must return audio/mpeg."""
         # Arrange
         from src import app as flask_app
 
@@ -174,15 +174,15 @@ class TestAudioEndpointSuccess:
 
         with patch.object(flask_app.engine, "get_audio", return_value=fake_mp3):
             # Act
-            response = client_con_testo.get("/api/audio/0?voice=paola")
+            response = client_with_text.get("/api/audio/0?voice=paola")
 
         # Assert
         assert response.status_code == 200
         assert response.content_type == "audio/mpeg"
         assert response.data == fake_mp3
 
-    def test_audio_passa_voce_all_engine(self, client_con_testo):
-        """GET /api/audio/0?voice=paola deve passare la voce all'engine."""
+    def test_audio_passes_voice_to_engine(self, client_with_text):
+        """GET /api/audio/0?voice=paola must pass the voice to the engine."""
         # Arrange
         from src import app as flask_app
 
@@ -190,26 +190,26 @@ class TestAudioEndpointSuccess:
 
         with patch.object(flask_app.engine, "get_audio", return_value=fake_mp3) as mock:
             # Act
-            response = client_con_testo.get("/api/audio/1?voice=paola")
+            response = client_with_text.get("/api/audio/1?voice=paola")
 
         # Assert
         assert response.status_code == 200
         mock.assert_called_once_with(1, "paola")
 
-    def test_audio_paragrafo_inesistente_404(self, client_con_testo):
-        """GET /api/audio/999 deve restituire 404."""
+    def test_audio_nonexistent_paragraph_404(self, client_with_text):
+        """GET /api/audio/999 must return 404."""
         # Arrange
         from src import app as flask_app
 
         with patch.object(flask_app.engine, "get_audio", side_effect=IndexError("out of range")):
             # Act
-            response = client_con_testo.get("/api/audio/999?voice=paola")
+            response = client_with_text.get("/api/audio/999?voice=paola")
 
         # Assert
         assert response.status_code == 404
 
-    def test_audio_errore_sintesi_500(self, client_con_testo):
-        """Un errore di sintesi deve restituire 500 con messaggio generico."""
+    def test_audio_synthesis_error_500(self, client_with_text):
+        """A synthesis error must return 500 with a generic message."""
         # Arrange
         from src import app as flask_app
 
@@ -222,32 +222,32 @@ class TestAudioEndpointSuccess:
             patch("src.app.log"),
         ):
             # Act
-            response = client_con_testo.get("/api/audio/0?voice=paola")
+            response = client_with_text.get("/api/audio/0?voice=paola")
 
         # Assert
         assert response.status_code == 500
         data = response.get_json()
         assert "error" in data
-        # Il messaggio NON deve contenere dettagli interni
+        # The message must NOT contain internal details
         assert "ffmpeg" not in data["error"]
 
 
 # ===========================================================================
-# Test — /api/prefetch
+# Tests — /api/prefetch
 # ===========================================================================
 
 
 class TestPrefetchEndpoint:
-    """Test per l'endpoint di prefetch."""
+    """Tests for the prefetch endpoint."""
 
-    def test_prefetch_restituisce_ok(self, client_con_testo):
-        """GET /api/prefetch/1 deve restituire status ok."""
+    def test_prefetch_returns_ok(self, client_with_text):
+        """GET /api/prefetch/1 must return status ok."""
         # Arrange
         from src import app as flask_app
 
         with patch.object(flask_app.engine, "prefetch") as mock_pf:
             # Act
-            response = client_con_testo.get("/api/prefetch/1?voice=paola")
+            response = client_with_text.get("/api/prefetch/1?voice=paola")
 
         # Assert
         assert response.status_code == 200
@@ -255,15 +255,15 @@ class TestPrefetchEndpoint:
         assert data["status"] == "ok"
         mock_pf.assert_called_once_with(1, "paola")
 
-    def test_prefetch_usa_voce_default(self, client_con_testo):
-        """Senza parametro voice, deve usare la voce di default."""
+    def test_prefetch_uses_default_voice(self, client_with_text):
+        """Without the voice parameter, it must use the default voice."""
         # Arrange
         from src import app as flask_app
         from src.config import DEFAULT_VOICE
 
         with patch.object(flask_app.engine, "prefetch") as mock_pf:
             # Act
-            response = client_con_testo.get("/api/prefetch/0")
+            response = client_with_text.get("/api/prefetch/0")
 
         # Assert
         assert response.status_code == 200
@@ -271,15 +271,15 @@ class TestPrefetchEndpoint:
 
 
 # ===========================================================================
-# Test — /api/save success path
+# Tests — /api/save success path
 # ===========================================================================
 
 
 class TestSaveEndpointSuccess:
-    """Test per il percorso di successo dell'endpoint save."""
+    """Tests for the success path of the save endpoint."""
 
-    def test_save_restituisce_mp3_con_content_disposition(self, client_con_testo):
-        """POST /api/save deve restituire MP3 con header Content-Disposition."""
+    def test_save_returns_mp3_with_content_disposition(self, client_with_text):
+        """POST /api/save must return MP3 with the Content-Disposition header."""
         # Arrange
         from src import app as flask_app
 
@@ -287,7 +287,7 @@ class TestSaveEndpointSuccess:
 
         with patch.object(flask_app.engine, "save_all", return_value=fake_mp3):
             # Act
-            response = client_con_testo.post(
+            response = client_with_text.post(
                 "/api/save",
                 data='{"voice": "paola"}',
                 content_type="application/json",
@@ -300,10 +300,10 @@ class TestSaveEndpointSuccess:
         assert "attachment" in response.headers["Content-Disposition"]
         assert ".mp3" in response.headers["Content-Disposition"]
 
-    def test_save_con_voce_invalida_400(self, client_con_testo):
-        """POST /api/save con voce inesistente deve restituire 400."""
+    def test_save_with_invalid_voice_400(self, client_with_text):
+        """POST /api/save with a nonexistent voice must return 400."""
         # Act
-        response = client_con_testo.post(
+        response = client_with_text.post(
             "/api/save",
             data='{"voice": "voce_fake"}',
             content_type="application/json",
@@ -315,15 +315,15 @@ class TestSaveEndpointSuccess:
 
 
 # ===========================================================================
-# Test — /api/load con path traversal
+# Tests — /api/load with path traversal
 # ===========================================================================
 
 
 class TestLoadEndpointSecurity:
-    """Test di sicurezza per l'endpoint di caricamento file."""
+    """Security tests for the file upload endpoint."""
 
-    def test_load_path_traversal_bloccato(self, client):
-        """Un file con path traversal nel nome deve essere rifiutato."""
+    def test_load_path_traversal_blocked(self, client):
+        """A file with path traversal in the name must be rejected."""
         # Arrange
         evil_file = (io.BytesIO(b"# Hack"), "../../../etc/passwd.md")
 
@@ -334,15 +334,15 @@ class TestLoadEndpointSecurity:
             content_type="multipart/form-data",
         )
 
-        # Assert — potrebbe essere accettato (nome base estratto) o rifiutato
-        # L'importante è che il path traversal sia neutralizzato
+        # Assert — it may be accepted (base name extracted) or rejected
+        # What matters is that the path traversal is neutralized
         if response.status_code == 200:
             data = response.get_json()
             assert "/" not in data["filename"]
             assert ".." not in data["filename"]
 
-    def test_load_filename_con_null_byte_rifiutato(self, client):
-        """Un file con null byte nel nome deve essere rifiutato."""
+    def test_load_filename_with_null_byte_rejected(self, client):
+        """A file with a null byte in the name must be rejected."""
         # Arrange
         evil_file = (io.BytesIO(b"# Content"), "file\x00.md")
 
@@ -358,15 +358,15 @@ class TestLoadEndpointSecurity:
 
 
 # ===========================================================================
-# Test — VOICES_META consistenza
+# Tests — VOICES_META consistency
 # ===========================================================================
 
 
 class TestVoicesMeta:
-    """Test per la coerenza dei metadati delle voci."""
+    """Tests for the consistency of the voice metadata."""
 
-    def test_voices_meta_contiene_tutte_le_voci(self):
-        """VOICES_META deve avere una entry per ogni voce in ALL_VOICES."""
+    def test_voices_meta_contains_all_voices(self):
+        """VOICES_META must have an entry for every voice in ALL_VOICES."""
         from src.app import VOICES_META
         from src.config import ALL_VOICES
 
@@ -376,47 +376,47 @@ class TestVoicesMeta:
         # Assert
         assert meta_ids == set(ALL_VOICES)
 
-    def test_voices_meta_campi_obbligatori(self):
-        """Ogni voce deve avere id, label, type, multilingual, gender, lang."""
+    def test_voices_meta_required_fields(self):
+        """Each voice must have id, label, type, multilingual, gender, lang."""
         from src.app import VOICES_META
 
         # Assert
-        campi = {"id", "label", "type", "multilingual", "gender", "lang"}
-        for voce in VOICES_META:
-            assert campi <= voce.keys(), (
-                f"Voce '{voce.get('id')}' mancante di: {campi - voce.keys()}"
+        fields = {"id", "label", "type", "multilingual", "gender", "lang"}
+        for voice in VOICES_META:
+            assert fields <= voice.keys(), (
+                f"Voice '{voice.get('id')}' missing: {fields - voice.keys()}"
             )
 
-    def test_voices_meta_gender_validi(self):
-        """Il gender deve essere 'M' o 'F'."""
+    def test_voices_meta_valid_gender(self):
+        """The gender must be 'M' or 'F'."""
         from src.app import VOICES_META
 
         # Assert
-        for voce in VOICES_META:
-            assert voce["gender"] in (
+        for voice in VOICES_META:
+            assert voice["gender"] in (
                 "M",
                 "F",
-            ), f"Voce '{voce['id']}' ha gender '{voce['gender']}' non valido"
+            ), f"Voice '{voice['id']}' has invalid gender '{voice['gender']}'"
 
 
 # ===========================================================================
-# Test — errorhandler 413 (file troppo grande)
+# Tests — errorhandler 413 (file too large)
 # ===========================================================================
 
 
 class TestTooLargeErrorHandler:
-    """Verifica che il 413 errorhandler risponda con JSON e messaggio."""
+    """Verify that the 413 errorhandler responds with JSON and a message."""
 
-    def test_upload_troppo_grande_restituisce_413(self, client):
-        """Un file superiore a MAX_CONTENT_LENGTH deve restituire 413."""
-        # Arrange — abbassa il limite a 10 byte per il solo test
+    def test_upload_too_large_returns_413(self, client):
+        """A file larger than MAX_CONTENT_LENGTH must return 413."""
+        # Arrange — lower the limit to 10 bytes for this test only
         from src.app import app
 
         original_limit = app.config["MAX_CONTENT_LENGTH"]
         app.config["MAX_CONTENT_LENGTH"] = 10
 
         try:
-            payload = b"X" * 50  # 50 byte > 10 byte limite
+            payload = b"X" * 50  # 50 bytes > 10 byte limit
             data = {"file": (io.BytesIO(payload), "grande.txt")}
 
             # Act
@@ -434,8 +434,8 @@ class TestTooLargeErrorHandler:
         assert body is not None
         assert "error" in body
 
-    def test_413_ha_security_headers(self, client):
-        """La risposta 413 deve avere gli header di sicurezza."""
+    def test_413_has_security_headers(self, client):
+        """The 413 response must have the security headers."""
         # Arrange
         from src.app import app
 

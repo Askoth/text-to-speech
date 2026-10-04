@@ -10,7 +10,7 @@ Two entry points (Browser and CLI) share the same conversion and synthesis pipel
 %%{init: {'theme': 'neutral'}}%%
 graph LR
     browser["Browser"]
-    cli["CLI (leggi.py)"]
+    cli["CLI (reader.py)"]
     flask["Flask Server"]
     tts_engine["TTSEngine"]
     conv["converters.py"]
