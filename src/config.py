@@ -27,7 +27,7 @@ VOICE_URLS = {
 }
 
 ALL_VOICES = sorted(list(PIPER_VOICES))
-DEFAULT_VOICE = "giuseppe"
+DEFAULT_VOICE = "paola"
 
 # ─── Piattaforma e dipendenze di sistema ────────────────────────────────────
 

@@ -4,7 +4,7 @@ Test per le funzioni di leggi.py e moduli correlati.
 
 Copre: costanti/configurazione voci, convertitore Markdown (edge case),
 scarica_voce_piper (synthesis), concatena_wav, mostra_paragrafo,
-calcola_path_output, leggi_con_piper, leggi_con_edge, main.
+calcola_path_output, leggi_con_piper, main.
 """
 
 import asyncio
@@ -23,16 +23,6 @@ import pytest
 
 class TestVoiceConstants:
     """Verifica coerenza tra le costanti di configurazione voci."""
-
-    def test_all_voices_contains_edge_and_piper(self):
-        """ALL_VOICES deve contenere tutte le voci Edge + Piper."""
-        from src.config import ALL_VOICES, EDGE_VOICES, PIPER_VOICES
-
-        # Assert
-        for voice in EDGE_VOICES:
-            assert voice in ALL_VOICES, f"Voce Edge '{voice}' mancante da ALL_VOICES"
-        for voice in PIPER_VOICES:
-            assert voice in ALL_VOICES, f"Voce Piper '{voice}' mancante da ALL_VOICES"
 
     def test_all_voices_is_sorted(self):
         """ALL_VOICES deve essere ordinata alfabeticamente."""
@@ -54,32 +44,6 @@ class TestVoiceConstants:
 
         # Assert
         assert DEFAULT_VOICE in ALL_VOICES
-
-    def test_default_voice_is_edge(self):
-        """DEFAULT_VOICE deve essere una voce Edge (richiede internet)."""
-        from src.config import DEFAULT_VOICE, EDGE_VOICES
-
-        # Assert — giuseppe è Edge TTS
-        assert DEFAULT_VOICE in EDGE_VOICES
-
-    def test_edge_voices_have_valid_ids(self):
-        """Gli ID delle voci Edge devono seguire il pattern xx-XX-*Neural."""
-        from src.config import EDGE_VOICES
-
-        # Assert
-        for name, info in EDGE_VOICES.items():
-            edge_id = info["edge_id"]
-            assert edge_id.endswith("Neural"), (
-                f"Voce '{name}' ha ID '{edge_id}' che non finisce con 'Neural'"
-            )
-            assert info["gender"] in (
-                "M",
-                "F",
-            ), f"Voce '{name}' ha genere '{info['gender']}' non valido"
-            assert info["lang"] in (
-                "it",
-                "en",
-            ), f"Voce '{name}' ha lingua '{info['lang']}' non valida"
 
     def test_voice_urls_point_to_existing_files(self):
         """VOICE_URLS deve avere entry per modello e config JSON."""
@@ -951,59 +915,6 @@ class TestLeggiConPiper:
 
 
 # ===========================================================================
-# Test — leggi_con_edge
-# ===========================================================================
-
-
-class TestLeggiConEdge:
-    """Test per la lettura CLI con Edge TTS."""
-
-    def test_esce_se_edge_tts_non_installato(self):
-        """Deve uscire con sys.exit(1) se edge-tts non è importabile."""
-        from src.leggi import leggi_con_edge
-
-        with (
-            patch.dict("sys.modules", {"edge_tts": None}),
-            pytest.raises(SystemExit, match="1"),
-        ):
-            leggi_con_edge("Testo", voice_name="giuseppe")
-
-    def test_esce_se_no_player_e_no_salva(self):
-        """Deve uscire se non c'è player audio e non si salva."""
-        from src.leggi import leggi_con_edge
-
-        mock_edge = MagicMock()
-        with (
-            patch.dict("sys.modules", {"edge_tts": mock_edge}),
-            patch("src.leggi._ha_player", return_value=False),
-            pytest.raises(SystemExit, match="1"),
-        ):
-            leggi_con_edge("Testo", voice_name="giuseppe", salva_path=None)
-
-    def test_chiama_asyncio_run_con_loop_edge(self):
-        """Deve chiamare asyncio.run con _loop_edge e i parametri corretti."""
-        from src.leggi import leggi_con_edge
-
-        mock_edge = MagicMock()
-        with (
-            patch.dict("sys.modules", {"edge_tts": mock_edge}),
-            patch("src.leggi._ha_player", return_value=True),
-            patch("src.leggi.asyncio.run") as mock_run,
-            patch("src.leggi.mostra_paragrafo"),
-        ):
-            leggi_con_edge("Paragrafo uno", voice_name="giuseppe")
-
-        # Assert — asyncio.run chiamato una volta con una coroutine
-        mock_run.assert_called_once()
-        coro = mock_run.call_args[0][0]
-        # Verifica che sia una coroutine (non un valore qualsiasi)
-        import asyncio
-
-        assert asyncio.iscoroutine(coro)
-        coro.close()  # pulizia per evitare RuntimeWarning
-
-
-# ===========================================================================
 # Test — main
 # ===========================================================================
 
@@ -1067,42 +978,6 @@ class TestMain:
 
         mock_scarica.assert_called_once()
         mock_leggi.assert_called_once()
-
-    def test_voce_edge_chiama_leggi_con_edge(self, tmp_path):
-        """Con --voice giuseppe deve chiamare leggi_con_edge."""
-        from src.leggi import main
-
-        f = tmp_path / "test.txt"
-        f.write_text("Contenuto test")
-
-        with (
-            patch("sys.argv", ["leggi.py", str(f), "--voice", "giuseppe"]),
-            patch("src.leggi.verifica_prerequisiti", return_value=[]),
-            patch("src.leggi.leggi_con_edge") as mock_leggi,
-        ):
-            main()
-
-        mock_leggi.assert_called_once()
-        assert mock_leggi.call_args[1]["salva_path"] is None
-
-    def test_salva_flag_calcola_path_output(self, tmp_path):
-        """Con --salva deve calcolare path output e passarli alla funzione TTS."""
-        from src.leggi import main
-
-        f = tmp_path / "documento.txt"
-        f.write_text("Contenuto da salvare")
-
-        with (
-            patch("sys.argv", ["leggi.py", str(f), "--voice", "giuseppe", "--salva"]),
-            patch("src.leggi.verifica_prerequisiti", return_value=[]),
-            patch("src.leggi.leggi_con_edge") as mock_leggi,
-        ):
-            main()
-
-        # salva_path non deve essere None
-        assert mock_leggi.call_args[1]["salva_path"] is not None
-        assert mock_leggi.call_args[1]["cartella_par"] is not None
-
 
 # ===========================================================================
 # Test — wav_a_mp3
@@ -1361,204 +1236,6 @@ class TestLeggiConPiperExtra:
             leggi_con_piper("Paragrafo uno\n\nParagrafo due")
 
         # Assert implicito: se arriviamo qui senza eccezioni, il test passa
-
-
-# ===========================================================================
-# Test — leggi_con_edge (path aggiuntivi)
-# ===========================================================================
-
-
-class TestLeggiConEdgeExtra:
-    """Test per i percorsi non coperti in leggi_con_edge."""
-
-    def test_crea_directory_salva_path_e_cartella_par(self, tmp_path):
-        """Con salva_path deve creare le directory padre e cartella_par."""
-        from src.leggi import leggi_con_edge
-
-        # Arrange
-        mock_edge = MagicMock()
-        salva = tmp_path / "nuova_dir" / "output.mp3"
-        cartella_par = tmp_path / "nuova_dir" / "paragraphs"
-
-        with (
-            patch.dict("sys.modules", {"edge_tts": mock_edge}),
-            patch("src.leggi._ha_player", return_value=False),
-            patch("src.leggi.asyncio.run"),
-        ):
-            # Act
-            leggi_con_edge(
-                "Testo", voice_name="giuseppe", salva_path=salva, cartella_par=cartella_par
-            )
-
-        # Assert
-        assert salva.parent.exists()
-        assert cartella_par.exists()
-
-    def test_crea_solo_parent_se_cartella_par_none(self, tmp_path):
-        """Con salva_path ma senza cartella_par deve creare solo la directory padre."""
-        from src.leggi import leggi_con_edge
-
-        # Arrange
-        mock_edge = MagicMock()
-        salva = tmp_path / "altra_dir" / "output.mp3"
-
-        with (
-            patch.dict("sys.modules", {"edge_tts": mock_edge}),
-            patch("src.leggi._ha_player", return_value=False),
-            patch("src.leggi.asyncio.run"),
-        ):
-            # Act
-            leggi_con_edge("Testo", voice_name="giuseppe", salva_path=salva, cartella_par=None)
-
-        # Assert
-        assert salva.parent.exists()
-
-
-# ===========================================================================
-# Test — _loop_edge (funzione async)
-# ===========================================================================
-
-
-async def _noop_coroutine():
-    """Coroutine noop per mock asincroni."""
-    return None
-
-
-class TestLoopEdge:
-    """Test per la funzione async _loop_edge."""
-
-    def _make_mp3(self) -> bytes:
-        return b"\xff\xfb" + b"\x00" * 48
-
-    def test_salva_mp3_per_paragrafo_e_file_completo(self, tmp_path):
-        """Con salva_path deve salvare ogni paragrafo e chiamare concatena_mp3."""
-        from src.leggi import _loop_edge
-
-        # Arrange
-        mp3 = self._make_mp3()
-        salva = tmp_path / "full" / "output.mp3"
-        salva.parent.mkdir(parents=True)
-        cartella_par = tmp_path / "paragraphs"
-        cartella_par.mkdir()
-        paragrafi = ["Primo", "Secondo"]
-
-        async def fake_sint(voice_id, testo):
-            return mp3
-
-        with (
-            patch("src.leggi.sintetizza_edge", side_effect=fake_sint),
-            patch("src.leggi.concatena_mp3") as mock_concat,
-            patch("src.leggi.mostra_paragrafo"),
-        ):
-            # Act
-            asyncio.run(_loop_edge("it-IT-GiuseppeNeural", paragrafi, False, salva, cartella_par))
-
-        # Assert — concatena_mp3 chiamato con 2 frammenti
-        mock_concat.assert_called_once()
-        lista, path = mock_concat.call_args[0]
-        assert len(lista) == 2
-        assert path == salva
-        assert (cartella_par / "001.mp3").exists()
-        assert (cartella_par / "002.mp3").exists()
-
-    def test_salva_senza_cartella_par(self, tmp_path):
-        """Con salva_path ma senza cartella_par non deve creare file singoli."""
-        from src.leggi import _loop_edge
-
-        # Arrange
-        mp3 = self._make_mp3()
-        salva = tmp_path / "full" / "output.mp3"
-        salva.parent.mkdir(parents=True)
-        paragrafi = ["Solo uno"]
-
-        async def fake_sint(voice_id, testo):
-            return mp3
-
-        with (
-            patch("src.leggi.sintetizza_edge", side_effect=fake_sint),
-            patch("src.leggi.concatena_mp3") as mock_concat,
-            patch("src.leggi.mostra_paragrafo"),
-        ):
-            # Act
-            asyncio.run(_loop_edge("it-IT-GiuseppeNeural", paragrafi, False, salva, None))
-
-        # Assert
-        mock_concat.assert_called_once()
-
-    def test_keyboard_interrupt_nel_loop_edge_non_propaga(self):
-        """Il loop edge completa senza propagare eccezioni su input validi."""
-        # Nota: KeyboardInterrupt sollevato in un asyncio task viene propagato
-        # direttamente da asyncio.run() in Python 3.12+, bypassando il
-        # try/except dentro la coroutine. Le righe 303-304 di leggi.py sono
-        # raggiungibili solo con SIGINT reale, non verificabile via unit test.
-        # Questo test verifica che il loop termini normalmente su input valido.
-        from src.leggi import _loop_edge
-
-        # Arrange
-        mp3 = self._make_mp3()
-        paragrafi = ["Solo uno"]
-
-        async def fake_sint(voice_id, testo):
-            return mp3
-
-        with (
-            patch("src.leggi.sintetizza_edge", side_effect=fake_sint),
-            patch("src.leggi.mostra_paragrafo"),
-        ):
-            # Act & Assert — non deve sollevare eccezioni
-            asyncio.run(_loop_edge("it-IT-GiuseppeNeural", paragrafi, False, None, None))
-
-    def test_riproduce_con_riproduci_async(self):
-        """Con riproduce=True deve chiamare _riproduci_async per ogni paragrafo."""
-        from src.leggi import _loop_edge
-
-        # Arrange
-        mp3 = self._make_mp3()
-        paragrafi = ["Primo", "Secondo"]
-        riproduci_calls = []
-
-        async def fake_sint(voice_id, testo):
-            return mp3
-
-        async def fake_riproduci(mp3_bytes):
-            riproduci_calls.append(mp3_bytes)
-
-        with (
-            patch("src.leggi.sintetizza_edge", side_effect=fake_sint),
-            patch("src.leggi._riproduci_async", side_effect=fake_riproduci),
-            patch("src.leggi.mostra_paragrafo"),
-        ):
-            # Act
-            asyncio.run(_loop_edge("it-IT-GiuseppeNeural", paragrafi, True, None, None))
-
-        # Assert
-        assert len(riproduci_calls) == 2
-
-    def test_non_chiama_concatena_se_nessun_paragrafo_salvato(self, tmp_path):
-        """Se salva_path è None, concatena_mp3 non deve essere chiamata."""
-        from src.leggi import _loop_edge
-
-        # Arrange
-        mp3 = self._make_mp3()
-        paragrafi = ["Testo"]
-
-        async def fake_sint(voice_id, testo):
-            return mp3
-
-        async def fake_riproduci(mp3_bytes):
-            pass
-
-        with (
-            patch("src.leggi.sintetizza_edge", side_effect=fake_sint),
-            patch("src.leggi._riproduci_async", side_effect=fake_riproduci),
-            patch("src.leggi.concatena_mp3") as mock_concat,
-            patch("src.leggi.mostra_paragrafo"),
-        ):
-            # Act
-            asyncio.run(_loop_edge("it-IT-GiuseppeNeural", paragrafi, True, None, None))
-
-        # Assert
-        mock_concat.assert_not_called()
 
 
 # ===========================================================================

@@ -2,7 +2,7 @@
 tests/test_app.py
 Test suite per TTS Reader: leggi, app (Flask), tts_engine.
 
-Dipendenze esterne (edge-tts, piper, ffmpeg) sono sempre mockata
+Dipendenze esterne (piper, ffmpeg) sono sempre mockate
 per garantire test isolati e veloci.
 """
 
@@ -361,29 +361,6 @@ class TestTTSEngine:
 
 
 class TestSynthesize:
-    def test_synthesize_edge_uses_async_loop(self, engine):
-        """_synthesize con voce Edge deve usare run_coroutine_threadsafe."""
-        # Arrange
-        engine.load_text("Testo di test.", "test.md")
-        fake_mp3 = b"ID3\x00fake_edge_mp3"
-
-        with patch("src.tts_engine.asyncio.run_coroutine_threadsafe") as mock_rcs:
-            mock_future = MagicMock()
-            mock_future.result.return_value = fake_mp3
-            mock_rcs.return_value = mock_future
-
-            # Act
-            result = engine._synthesize(0, "giuseppe")
-
-        # Assert
-        assert result == fake_mp3
-        mock_rcs.assert_called_once()
-        # Verifica che usi il loop dedicato _async_loop
-        from src.tts_engine import _async_loop
-
-        assert mock_rcs.call_args[0][1] is _async_loop
-        mock_future.result.assert_called_once_with(timeout=60)
-
     def test_synthesize_piper_loads_model_lazy(self, engine):
         """_synthesize con voce Piper deve caricare il modello e convertire WAV in MP3."""
         # Arrange

@@ -386,17 +386,6 @@ class TestVoicesMeta:
                 f"Voce '{voce.get('id')}' mancante di: {campi - voce.keys()}"
             )
 
-    def test_voices_meta_type_validi(self):
-        """Il type di ogni voce deve essere 'edge' o 'piper'."""
-        from src.app import VOICES_META
-
-        # Assert
-        for voce in VOICES_META:
-            assert voce["type"] in (
-                "edge",
-                "piper",
-            ), f"Voce '{voce['id']}' ha type '{voce['type']}' non valido"
-
     def test_voices_meta_gender_validi(self):
         """Il gender deve essere 'M' o 'F'."""
         from src.app import VOICES_META

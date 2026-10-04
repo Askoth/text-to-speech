@@ -2,7 +2,7 @@
 tests/test_tts_engine.py
 Test per tts_engine.py: cache LRU, sintesi, prefetch, save_all, load_file.
 
-Le dipendenze esterne (edge-tts, piper, ffmpeg) sono sempre mockate.
+Le dipendenze esterne (piper, ffmpeg) sono sempre mockate.
 """
 
 import time
@@ -196,29 +196,7 @@ class TestTTSEngineCache:
 
 
 class TestTTSEngineSynthesize:
-    """Test per il dispatch di sintesi verso Edge o Piper."""
-
-    def test_synthesize_edge_usa_async_loop(self, engine_con_testo):
-        """Per voci Edge, deve usare run_coroutine_threadsafe con _async_loop."""
-        # Arrange
-        fake_mp3 = b"ID3\x00edge_audio"
-
-        with patch("src.tts_engine.asyncio.run_coroutine_threadsafe") as mock_rcs:
-            mock_future = MagicMock()
-            mock_future.result.return_value = fake_mp3
-            mock_rcs.return_value = mock_future
-
-            # Act
-            risultato = engine_con_testo._synthesize(0, "giuseppe")
-
-        # Assert
-        mock_rcs.assert_called_once()
-        # Verifica che usi il loop dedicato _async_loop
-        from src.tts_engine import _async_loop
-
-        assert mock_rcs.call_args[0][1] is _async_loop
-        mock_future.result.assert_called_once_with(timeout=60)
-        assert risultato == fake_mp3
+    """Test per il dispatch di sintesi verso Piper."""
 
     def test_synthesize_piper_carica_modello_lazy(self, engine_con_testo):
         """Per voci Piper, deve caricare il modello al primo uso."""

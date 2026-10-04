@@ -1,9 +1,8 @@
 """
 tests/test_synthesis.py
-Test per le funzioni di sintesi vocale: Piper TTS e Edge TTS.
+Test per le funzioni di sintesi vocale: Piper TTS.
 """
 
-import asyncio
 import io
 import wave
 from unittest.mock import MagicMock, patch
@@ -52,83 +51,6 @@ class TestSintetizzaPiper:
             risultato = sintetizza_piper(mock_voce, "Test", sr)
             with wave.open(io.BytesIO(risultato), "rb") as wf:
                 assert wf.getframerate() == sr
-
-
-# ===========================================================================
-# Test — sintetizza_edge
-# ===========================================================================
-
-
-def _run_async(coro):
-    """Helper per eseguire coroutine senza pytest-asyncio."""
-    return asyncio.run(coro)
-
-
-class TestSintetizzaEdge:
-    """Test per la sintesi MP3 con Edge TTS."""
-
-    def _make_mock_edge(self, chunks):
-        """Crea mock edge_tts module con stream che restituisce i chunk dati."""
-        mock_edge = MagicMock()
-        mock_comm = MagicMock()
-
-        async def mock_stream():
-            for c in chunks:
-                yield c
-
-        mock_comm.stream = mock_stream
-        mock_edge.Communicate.return_value = mock_comm
-        return mock_edge
-
-    def test_restituisce_bytes_audio(self):
-        """Deve restituire bytes MP3 concatenati dai chunk audio."""
-        from src.synthesis import sintetizza_edge
-
-        chunks = [
-            {"type": "audio", "data": b"\xff\xfb\x90\x00"},
-            {"type": "metadata", "data": b"info"},
-            {"type": "audio", "data": b"\xff\xfb\x90\x01"},
-        ]
-        mock_edge = self._make_mock_edge(chunks)
-
-        with patch.dict("sys.modules", {"edge_tts": mock_edge}):
-            risultato = _run_async(sintetizza_edge("it-IT-GiuseppeNeural", "Ciao"))
-
-        assert risultato == b"\xff\xfb\x90\x00\xff\xfb\x90\x01"
-
-    def test_parametri_rate_e_pitch(self):
-        """Deve passare rate e pitch a edge_tts.Communicate."""
-        from src.synthesis import sintetizza_edge
-
-        mock_edge = self._make_mock_edge([])
-
-        async def empty_stream():
-            return
-            yield
-
-        mock_edge.Communicate.return_value.stream = empty_stream
-
-        with patch.dict("sys.modules", {"edge_tts": mock_edge}):
-            _run_async(sintetizza_edge("it-IT-GiuseppeNeural", "Test", rate="+13%", pitch="-3Hz"))
-
-        mock_edge.Communicate.assert_called_once_with(
-            "Test", "it-IT-GiuseppeNeural", rate="+13%", pitch="-3Hz"
-        )
-
-    def test_nessun_chunk_audio_restituisce_vuoto(self):
-        """Se lo stream non contiene chunk audio, restituisce bytes vuoti."""
-        from src.synthesis import sintetizza_edge
-
-        mock_edge = self._make_mock_edge(
-            [
-                {"type": "metadata", "data": b"info"},
-            ]
-        )
-
-        with patch.dict("sys.modules", {"edge_tts": mock_edge}):
-            risultato = _run_async(sintetizza_edge("it-IT-IsabellaNeural", "Vuoto"))
-
-        assert risultato == b""
 
 
 # ===========================================================================
