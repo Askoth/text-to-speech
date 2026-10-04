@@ -169,7 +169,12 @@ def riproduci_audio(audio_bytes: bytes, formato: str):
 # ─── Lettura con Piper TTS ──────────────────────────────────────────────────
 
 
-def leggi_con_piper(testo: str, voce: str = DEFAULT_VOICE, salva_path: Path | None = None, cartella_par: Path | None = None):
+def leggi_con_piper(
+    testo: str,
+    voce: str = DEFAULT_VOICE,
+    salva_path: Path | None = None,
+    cartella_par: Path | None = None,
+):
     try:
         from piper import PiperVoice
     except ImportError:

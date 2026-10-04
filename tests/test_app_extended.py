@@ -213,11 +213,14 @@ class TestAudioEndpointSuccess:
         # Arrange
         from src import app as flask_app
 
-        with patch.object(
-            flask_app.engine,
-            "get_audio",
-            side_effect=RuntimeError("ffmpeg crashed"),
-        ), patch("src.app.log"):
+        with (
+            patch.object(
+                flask_app.engine,
+                "get_audio",
+                side_effect=RuntimeError("ffmpeg crashed"),
+            ),
+            patch("src.app.log"),
+        ):
             # Act
             response = client_con_testo.get("/api/audio/0?voice=paola")
 
@@ -453,6 +456,3 @@ class TestTooLargeErrorHandler:
 
         # Assert
         assert response.headers.get("X-Content-Type-Options") == "nosniff"
-
-
-

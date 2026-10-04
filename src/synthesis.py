@@ -89,4 +89,3 @@ def sintetizza_piper(voce_piper, testo: str, sample_rate: int) -> bytes:
         wf.setframerate(sample_rate)
         voce_piper.synthesize_wav(testo, wf)
     return buf.getvalue()
-

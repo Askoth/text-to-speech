@@ -57,10 +57,7 @@ def add_security_headers(response):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Content-Security-Policy"] = (
-        "default-src 'self'; "
-        "script-src 'self'; "
-        "style-src 'self'; "
-        "media-src 'self' blob:"
+        "default-src 'self'; script-src 'self'; style-src 'self'; media-src 'self' blob:"
     )
     return response
 
@@ -122,7 +119,6 @@ def api_load():
         paragraphs = engine.load_file(tmp_path)
     finally:
         tmp_path.unlink(missing_ok=True)
-
 
     return jsonify(
         {

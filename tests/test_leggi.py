@@ -22,6 +22,7 @@ def _mock_dest(exists: bool, name: str) -> MagicMock:
     d.name = name
     return d
 
+
 import pytest
 
 # ===========================================================================
@@ -992,6 +993,7 @@ class TestMain:
 
         mock_scarica.assert_called_once()
         mock_leggi.assert_called_once()
+
 
 # ===========================================================================
 # Test — wav_a_mp3
