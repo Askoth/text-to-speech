@@ -62,7 +62,7 @@ TRANSLATIONS = {
     },
 }
 
-DEFAULT_LANG = "it"
+DEFAULT_LANG = "en"
 SUPPORTED_LANGS = frozenset(TRANSLATIONS.keys())
 
 

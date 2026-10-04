@@ -147,7 +147,7 @@ const I18N_TRANSLATIONS = {
 
 /* ── Stato corrente ─────────────────────────────────────── */
 
-const I18N_DEFAULT_LANG = 'it';
+const I18N_DEFAULT_LANG = 'en';
 const I18N_STORAGE_KEY  = 'tts-reader-lang';
 
 let _currentLang = localStorage.getItem(I18N_STORAGE_KEY) || I18N_DEFAULT_LANG;

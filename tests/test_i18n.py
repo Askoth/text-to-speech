@@ -264,10 +264,10 @@ class TestEndpointI18n:
         assert data["error"] == "No file loaded"
 
     def test_default_lingua_senza_param(self, client):
-        """Senza ?lang=, gli errori devono essere nella lingua di default (italiano)."""
+        """Without ?lang=, errors must be in the default language (English)."""
         # Act
         response = client.post("/api/load", data={})
 
         # Assert
         data = response.get_json()
-        assert data["error"] == "Nessun file inviato"
+        assert data["error"] == "No file provided"
