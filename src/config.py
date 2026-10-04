@@ -77,12 +77,20 @@ PIPER_VOICES: PiperVoices = PiperVoices(
             url_model="https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/alba/medium/en_GB-alba-medium.onnx",
             url_json="https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/alba/medium/en_GB-alba-medium.onnx.json",
         ),
+        Voice(
+            name="southern_english_female",
+            gender="F",
+            lang="en",
+            multilingual=False,
+            url_model="https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/southern_english_female/low/en_GB-southern_english_female-low.onnx",
+            url_json="https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/southern_english_female/low/en_GB-southern_english_female-low.onnx.json",
+        ),
     ]
 )
 
 
 ALL_VOICES = sorted(v.name for v in PIPER_VOICES.voices)
-DEFAULT_VOICE = "paola"
+DEFAULT_VOICE = "alba"
 
 # ─── Piattaforma e dipendenze di sistema ────────────────────────────────────
 
