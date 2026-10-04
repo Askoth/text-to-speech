@@ -146,7 +146,7 @@ def api_audio(idx):
     except IndexError:
         return jsonify({"error": tr(lang, "error.paragraph_not_found", idx=idx)}), 404
     except Exception:
-        log.exception("Errore sintesi paragrafo %d con voce %s stile %s", idx, voice)
+        log.exception("Errore sintesi paragrafo %d con voce %s", idx, voice)
         return jsonify({"error": tr(lang, "error.synthesis_failed")}), 500
 
     return Response(mp3_bytes, mimetype="audio/mpeg")
