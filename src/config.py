@@ -16,8 +16,8 @@ DATA_OUTPUT = PROJECT_ROOT / "data" / "output"
 
 # ─── Voice configuration ───────────────────────────────────────────────────
 
-# Directory holding the Piper models (under the user's home).
-VOICE_DIR = Path.home() / "piper-voices"
+# Directory holding the Piper models (XDG data, namespaced under this app).
+VOICE_DIR = Path.home() / ".local" / "share" / "text-to-speech" / "piper-voices"
 
 # Registry of Piper voices. A voice declares:
 #   model / json              -> local paths of the .onnx and .onnx.json files
