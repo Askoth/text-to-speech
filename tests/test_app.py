@@ -130,6 +130,8 @@ class TestIndexEndpoint:
 class TestVoicesEndpoint:
     def test_voices_endpoint(self, client):
         """GET /api/voices deve restituire le voci con struttura corretta."""
+        from src.config import ALL_VOICES
+
         # Act
         response = client.get("/api/voices")
         data = response.get_json()
@@ -138,7 +140,8 @@ class TestVoicesEndpoint:
         assert response.status_code == 200
         assert "voices" in data
         assert "default" in data
-        assert len(data["voices"]) == 1
+        ids_disponibili = {v["id"] for v in data["voices"]}
+        assert ids_disponibili == set(ALL_VOICES)
 
         # Ogni voce deve avere i campi obbligatori
         campi_obbligatori = {"id", "label", "type", "multilingual", "gender", "lang"}
@@ -148,7 +151,6 @@ class TestVoicesEndpoint:
             )
 
         # Verifica che la voce di default esista nella lista
-        ids_disponibili = {v["id"] for v in data["voices"]}
         assert data["default"] in ids_disponibili
 
 
@@ -344,7 +346,11 @@ class TestTTSEngine:
         def fake_synthesize(index, voice):
             return mp3_paola if voice == "paola" else mp3_maria
 
-        with patch.object(engine, "_synthesize", side_effect=fake_synthesize):
+        # patchiamo anche prefetch: il test copre solo le chiavi di cache
+        with (
+            patch.object(engine, "_synthesize", side_effect=fake_synthesize),
+            patch.object(engine, "prefetch"),
+        ):
             # Act
             audio_paola = engine.get_audio(0, "paola")
             audio_maria = engine.get_audio(0, "maria")
@@ -498,7 +504,7 @@ class TestLoadPiper:
             # Act — 5 thread concorrenti che chiamano il vero _load_piper
             threads = []
             for _ in range(5):
-                t = threading.Thread(target=engine._load_piper)
+                t = threading.Thread(target=engine._load_piper, args=("paola",))
                 threads.append(t)
                 t.start()
             for t in threads:
@@ -506,5 +512,4 @@ class TestLoadPiper:
 
         # Assert — PiperVoice.load deve essere chiamato una sola volta
         mock_piper_module.PiperVoice.load.assert_called_once()
-        assert engine._piper_voice is mock_voice
-        assert engine._piper_sample_rate == 22050
+        assert engine._piper_voices["paola"] is mock_voice

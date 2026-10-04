@@ -35,8 +35,6 @@ from src.config import (
     NC,
     PIPER_VOICES,
     PLATFORM,
-    VOICE_JSON,
-    VOICE_MODEL,
     error,
     info,
     suggerisci_installazione,
@@ -171,7 +169,7 @@ def riproduci_audio(audio_bytes: bytes, formato: str):
 # ─── Lettura con Piper TTS ──────────────────────────────────────────────────
 
 
-def leggi_con_piper(testo: str, salva_path: Path | None = None, cartella_par: Path | None = None):
+def leggi_con_piper(testo: str, voce: str = DEFAULT_VOICE, salva_path: Path | None = None, cartella_par: Path | None = None):
     try:
         from piper import PiperVoice
     except ImportError:
@@ -188,9 +186,10 @@ def leggi_con_piper(testo: str, salva_path: Path | None = None, cartella_par: Pa
         error(f"ffmpeg non trovato.\n         {suggerisci_installazione('ffmpeg')}")
         sys.exit(1)
 
-    info("Carico la voce Paola...")
-    voce = PiperVoice.load(str(VOICE_MODEL), config_path=str(VOICE_JSON))
-    sample_rate = voce.config.sample_rate
+    cfg = PIPER_VOICES[voce]
+    info(f"Carico la voce {voce}...")
+    piper_voice = PiperVoice.load(str(cfg["model"]), config_path=str(cfg["json"]))
+    sample_rate = piper_voice.config.sample_rate
 
     paragrafi = [p.strip() for p in testo.split("\n\n") if p.strip()]
     info(f"Paragrafi da leggere: {len(paragrafi)}")
@@ -209,7 +208,7 @@ def leggi_con_piper(testo: str, salva_path: Path | None = None, cartella_par: Pa
     try:
         for i, paragrafo in enumerate(paragrafi, 1):
             mostra_paragrafo(i, len(paragrafi), paragrafo, riproduce)
-            wav_bytes = sintetizza_piper(voce, paragrafo, sample_rate)
+            wav_bytes = sintetizza_piper(piper_voice, paragrafo, sample_rate)
 
             if salva_path:
                 tutti_wav.append(wav_bytes)
@@ -353,8 +352,8 @@ struttura output (con --salva):
     info(f"Testo estratto: {len(testo)} caratteri")
 
     if args.voice in PIPER_VOICES:
-        scarica_voce_piper()
-        leggi_con_piper(testo, salva_path=salva_path, cartella_par=cartella_par)
+        scarica_voce_piper(args.voice)
+        leggi_con_piper(testo, args.voice, salva_path=salva_path, cartella_par=cartella_par)
     else:
         error("Ha provatto da utilisare edge ma non c'e")
 

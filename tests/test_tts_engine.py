@@ -217,23 +217,24 @@ class TestTTSEngineSynthesize:
         assert risultato == fake_mp3
 
     def test_synthesize_piper_non_ricarica_modello(self, engine_con_testo):
-        """Se il modello Piper è già caricato, non deve ricaricarlo."""
-        # Arrange — simula modello già caricato
-        engine_con_testo._piper_voice = MagicMock()
-        engine_con_testo._piper_sample_rate = 22050
+        """Se il modello è già in _piper_voices, _synthesize non deve rigenerarlo."""
+        # Arrange — simula modello già caricato nel dict
+        mock_voce = MagicMock()
+        mock_voce.config.sample_rate = 22050
+        engine_con_testo._piper_voices["paola"] = mock_voce
         fake_wav = b"RIFF\x00\x00\x00\x00WAVEfmt "
         fake_mp3 = b"ID3\x00piper_audio"
 
+        # Act — _load_piper NON mockato: deve fare solo dict lookup
         with (
-            patch("src.tts_engine.sintetizza_piper", return_value=fake_wav),
+            patch("src.tts_engine.sintetizza_piper", return_value=fake_wav) as mock_sint,
             patch("src.tts_engine._wav_to_mp3_bytes", return_value=fake_mp3),
-            patch.object(engine_con_testo, "_load_piper") as mock_load,
         ):
-            # Act
             engine_con_testo._synthesize(0, "paola")
 
-        # Assert — _load_piper NON deve essere chiamato
-        mock_load.assert_not_called()
+        # Assert — sintetizza_piper riceve il modello già in dict
+        assert mock_sint.call_count == 1
+        assert mock_sint.call_args[0][0] is mock_voce
 
 
 # ===========================================================================
@@ -389,7 +390,12 @@ class TestTTSEngineGetAudioIntegration:
         def fake_synth(idx, voice):
             return f"mp3_{voice}".encode()
 
-        with patch.object(engine_con_testo, "_synthesize", side_effect=fake_synth):
+        # patchiamo anche prefetch: il test copre solo le chiavi di cache,
+        # non deve sfuggire un worker di background con voce inesistente
+        with (
+            patch.object(engine_con_testo, "_synthesize", side_effect=fake_synth),
+            patch.object(engine_con_testo, "prefetch"),
+        ):
             # Act
             audio_p = engine_con_testo.get_audio(0, "paola")
             audio_m = engine_con_testo.get_audio(0, "maria")
@@ -423,13 +429,12 @@ class TestTTSEngineLoadPiper:
             patch.dict("sys.modules", {"piper": mock_piper_module}),
         ):
             # Act — chiama due volte
-            engine._load_piper()
-            engine._load_piper()
+            engine._load_piper("paola")
+            engine._load_piper("paola")
 
         # Assert — PiperVoice.load chiamato una sola volta
         mock_piper_module.PiperVoice.load.assert_called_once()
-        assert engine._piper_voice is mock_voice
-        assert engine._piper_sample_rate == 22050
+        assert engine._piper_voices["paola"] is mock_voice
 
 
 # ===========================================================================

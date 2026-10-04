@@ -14,6 +14,14 @@ import wave
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+
+def _mock_dest(exists: bool, name: str) -> MagicMock:
+    """Simula un path del modello: .exists() restituisce il flag, .name il file."""
+    d = MagicMock()
+    d.exists.return_value = exists
+    d.name = name
+    return d
+
 import pytest
 
 # ===========================================================================
@@ -46,12 +54,14 @@ class TestVoiceConstants:
         assert DEFAULT_VOICE in ALL_VOICES
 
     def test_voice_urls_point_to_existing_files(self):
-        """VOICE_URLS deve avere entry per modello e config JSON."""
-        from src.config import VOICE_JSON, VOICE_MODEL, VOICE_URLS
+        """Ogni voce Piper deve avere model, json e le relative URL di download."""
+        from src.config import PIPER_VOICES
 
-        # Assert
-        assert VOICE_MODEL in VOICE_URLS
-        assert VOICE_JSON in VOICE_URLS
+        for vid, cfg in PIPER_VOICES.items():
+            assert cfg["model"], f"voce {vid} senza model"
+            assert cfg["json"], f"voce {vid} senza json"
+            assert cfg["url_model"], f"voce {vid} senza url_model"
+            assert cfg["url_json"], f"voce {vid} senza url_json"
 
     def test_voice_model_path_uses_home_directory(self):
         """VOICE_DIR deve essere sotto la home directory dell'utente."""
@@ -356,43 +366,47 @@ class TestScaricaVocePiper:
         """Non deve scaricare se i file del modello esistono già."""
         from src.synthesis import scarica_voce_piper
 
-        # Arrange & Act
+        # Arrange
+        registry = {
+            "paola": {
+                "model": _mock_dest(True, "model.onnx"),
+                "json": _mock_dest(True, "model.onnx.json"),
+                "url_model": "http://example.com/model",
+                "url_json": "http://example.com/model.json",
+            }
+        }
+
         with (
-            patch("src.synthesis.VOICE_DIR") as mock_dir,
-            patch("src.synthesis.VOICE_URLS", {}),
+            patch("src.synthesis.VOICE_DIR"),
+            patch("src.synthesis.PIPER_VOICES", registry),
             patch("src.synthesis.urllib.request.urlopen") as mock_urlopen,
         ):
-            mock_dir.mkdir = MagicMock()
-            scarica_voce_piper()
+            # Act
+            scarica_voce_piper("paola")
 
-        # Assert — urlopen non deve essere chiamato con lista URL vuota
+        # Assert — urlopen non deve essere chiamato (tutto già scaricato)
         mock_urlopen.assert_not_called()
 
     def test_crea_directory_se_non_esiste(self):
         """Deve creare la directory dei modelli con parents=True."""
         from src.synthesis import scarica_voce_piper
 
-        # Arrange
-        mock_path_model = MagicMock()
-        mock_path_model.exists.return_value = True
-        mock_path_model.name = "model.onnx"
-
-        mock_path_json = MagicMock()
-        mock_path_json.exists.return_value = True
-        mock_path_json.name = "model.onnx.json"
+        # Arrange — file presenti, si verifica solo la mkdir
+        registry = {
+            "paola": {
+                "model": _mock_dest(True, "model.onnx"),
+                "json": _mock_dest(True, "model.onnx.json"),
+                "url_model": "http://example.com/model",
+                "url_json": "http://example.com/model.json",
+            }
+        }
 
         with (
             patch("src.synthesis.VOICE_DIR") as mock_dir,
-            patch(
-                "src.synthesis.VOICE_URLS",
-                {
-                    mock_path_model: "http://example.com/model",
-                    mock_path_json: "http://example.com/model.json",
-                },
-            ),
+            patch("src.synthesis.PIPER_VOICES", registry),
         ):
             # Act
-            scarica_voce_piper()
+            scarica_voce_piper("paola")
 
             # Assert
             mock_dir.mkdir.assert_called_once_with(parents=True, exist_ok=True)

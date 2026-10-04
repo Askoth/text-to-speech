@@ -11,24 +11,37 @@ import urllib.request
 import wave
 
 from src.config import (
+    PIPER_VOICES,
     VOICE_DIR,
-    VOICE_URLS,
     error,
     info,
     warn,
 )
 
 
-def scarica_voce_piper():
-    """Scarica il modello vocale Piper se non già presente.
+def scarica_voce_piper(voce: str):
+    """Scarica i file (modello + config) della voce Piper se non già presenti.
+
+    Parameters
+    ----------
+    voce : str
+        Nome voce nel registro PIPER_VOICES.
 
     Raises
     ------
+    ValueError
+        Se la voce non è nel registro.
     RuntimeError
         Se il download fallisce.
     """
+    if voce not in PIPER_VOICES:
+        raise ValueError(f"Voce Piper sconosciuta: {voce}")
+    cfg = PIPER_VOICES[voce]
     VOICE_DIR.mkdir(parents=True, exist_ok=True)
-    for dest, url in VOICE_URLS.items():
+    for dest, url in (
+        (cfg["model"], cfg["url_model"]),
+        (cfg["json"], cfg["url_json"]),
+    ):
         if dest.exists():
             info(f"Voce già presente: {dest.name}")
             continue

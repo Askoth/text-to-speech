@@ -15,18 +15,36 @@ DATA_OUTPUT = PROJECT_ROOT / "data" / "output"
 
 # ─── Configurazione voci ─────────────────────────────────────────────────────
 
-PIPER_VOICES = {"paola"}
-
+# Directory in cui risiedono i modelli Piper (sotto la home dell'utente).
 VOICE_DIR = Path.home() / "piper-voices"
-VOICE_MODEL = VOICE_DIR / "it_IT-paola-medium.onnx"
-VOICE_JSON = VOICE_DIR / "it_IT-paola-medium.onnx.json"
 
-VOICE_URLS = {
-    VOICE_MODEL: "https://huggingface.co/rhasspy/piper-voices/resolve/main/it/it_IT/paola/medium/it_IT-paola-medium.onnx",
-    VOICE_JSON: "https://huggingface.co/rhasspy/piper-voices/resolve/main/it/it_IT/paola/medium/it_IT-paola-medium.onnx.json",
+# Registro delle voci Piper. Una voce dichiara:
+#   model / json              -> path locali dei file .onnx e .onnx.json
+#   url_model / url_json      -> da dove scaricarli se mancanti
+#   gender / lang / multilingual -> metadati esposti a Web/CLI
+# Per aggiungere una voce basta aggiungere una entry qui.
+PIPER_VOICES = {
+    "paola": {
+        "gender": "F",
+        "lang": "it",
+        "multilingual": False,
+        "model": VOICE_DIR / "it_IT-paola-medium.onnx",
+        "json": VOICE_DIR / "it_IT-paola-medium.onnx.json",
+        "url_model": "https://huggingface.co/rhasspy/piper-voices/resolve/main/it/it_IT/paola/medium/it_IT-paola-medium.onnx",
+        "url_json": "https://huggingface.co/rhasspy/piper-voices/resolve/main/it/it_IT/paola/medium/it_IT-paola-medium.onnx.json",
+    },
+    "alba": {
+        "gender": "F",
+        "lang": "en",
+        "multilingual": False,
+        "model": VOICE_DIR / "en_GB-alba-medium.onnx",
+        "json": VOICE_DIR / "en_GB-alba-medium.onnx.json",
+        "url_model": "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/alba/medium/en_GB-alba-medium.onnx",
+        "url_json": "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/alba/medium/en_GB-alba-medium.onnx.json",
+    },
 }
 
-ALL_VOICES = sorted(list(PIPER_VOICES))
+ALL_VOICES = sorted(PIPER_VOICES)
 DEFAULT_VOICE = "paola"
 
 # ─── Piattaforma e dipendenze di sistema ────────────────────────────────────

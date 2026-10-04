@@ -12,7 +12,7 @@ from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from src.config import VOICE_JSON, VOICE_MODEL
+from src.config import PIPER_VOICES
 from src.converters import file_a_testo
 from src.synthesis import scarica_voce_piper, sintetizza_piper
 
@@ -69,8 +69,7 @@ class TTSEngine:
         self._lock = threading.Lock()
         self._paragraphs: list[str] = []
         self._filename: str = ""
-        self._piper_voice = None
-        self._piper_sample_rate: int = 0
+        self._piper_voices: dict = {}
 
     @property
     def paragraphs(self) -> list[str]:
@@ -161,23 +160,23 @@ class TTSEngine:
                 raise IndexError(f"Paragrafo {index} fuori range (durante sintesi)")
             text = self._paragraphs[index]
 
-        # Piper (offline) — carica il modello lazy, stile ignorato
-        if self._piper_voice is None:
-            self._load_piper()
-
-        wav_bytes = sintetizza_piper(self._piper_voice, text, self._piper_sample_rate)
+        # Piper (offline) — carica il modello della voce lazy, stile ignorato
+        voce_piper = self._load_piper(voice)
+        wav_bytes = sintetizza_piper(voce_piper, text, voce_piper.config.sample_rate)
         return _wav_to_mp3_bytes(wav_bytes)
 
-    def _load_piper(self):
-        """Carica il modello Piper una sola volta (thread-safe)."""
+    def _load_piper(self, voice):
+        """Carica il modello Piper della voce una sola volta (thread-safe)."""
         with self._lock:
-            if self._piper_voice is not None:
-                return
+            if voice in self._piper_voices:
+                return self._piper_voices[voice]
             from piper import PiperVoice
 
-            scarica_voce_piper()
-            self._piper_voice = PiperVoice.load(str(VOICE_MODEL), config_path=str(VOICE_JSON))
-            self._piper_sample_rate = self._piper_voice.config.sample_rate
+            scarica_voce_piper(voice)
+            cfg = PIPER_VOICES[voice]
+            voce_piper = PiperVoice.load(str(cfg["model"]), config_path=str(cfg["json"]))
+            self._piper_voices[voice] = voce_piper
+            return voce_piper
 
     def _put_cache(self, key: str, data: bytes):
         with self._lock:

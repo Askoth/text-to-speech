@@ -40,11 +40,11 @@ VOICES_META = [
         "id": vid,
         "label": vid.capitalize(),
         "type": "piper",
-        "multilingual": False,
-        "gender": "F",
-        "lang": "it",
+        "multilingual": cfg["multilingual"],
+        "gender": cfg["gender"],
+        "lang": cfg["lang"],
     }
-    for vid in sorted(PIPER_VOICES)
+    for vid, cfg in sorted(PIPER_VOICES.items())
 ]
 
 
