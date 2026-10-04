@@ -20,6 +20,7 @@ output_paragrafi/
 
 # Markdown sorgenti (contenuti personali)
 *.md
+!AGENTS.md
 !README.md
 !README.it.md
 !SECURITY.md
