@@ -437,7 +437,7 @@ class TestPrefetchLogging:
         # Assert
         mock_log.warning.assert_called_once()
         call_args = mock_log.warning.call_args
-        assert "Prefetch paragrafo" in call_args[0][0]
+        assert "Synthesis failed for paragraph" in call_args[0][0]
         assert call_args[0][1] == 0  # indice del paragrafo
 
 

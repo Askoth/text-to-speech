@@ -5,6 +5,7 @@ Test per tts_engine.py: cache LRU, sintesi, prefetch, save_all, load_file.
 Le dipendenze esterne (piper, ffmpeg) sono sempre mockate.
 """
 
+import threading
 import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -338,13 +339,79 @@ class TestTTSEnginePrefetch:
             patch("src.tts_engine._executor") as mock_exec,
         ):
             # Esegui il task sincrono (elimina race condition da CI)
-            mock_exec.submit.side_effect = lambda fn: fn()
+            mock_exec.submit.side_effect = lambda fn, *args: fn(*args)
             # Act
             engine_con_testo.prefetch(0, "paola")
 
         # Assert
         assert "paola:0" in engine_con_testo._cache
         assert engine_con_testo._cache["paola:0"] == fake_mp3
+
+
+# ===========================================================================
+# Test — TTSEngine single-flight (inflight dedup)
+# ===========================================================================
+
+
+class TestSingleFlight:
+    """One synthesis job per key: concurrent requests share the in-flight job."""
+
+    def test_get_audio_joins_inflight_job(self, engine_con_testo):
+        """get_audio must wait for the in-flight job, not synthesize again."""
+        # Arrange — last paragraph so get_audio triggers no follow-up prefetch
+        idx = len(engine_con_testo.paragraphs) - 1
+        started = threading.Event()
+        release = threading.Event()
+        calls = []
+
+        def fake_synthesize(i, voice):
+            calls.append((i, voice))
+            started.set()
+            assert release.wait(5)
+            return b"mp3"
+
+        outcome = {}
+
+        def caller():
+            outcome["audio"] = engine_con_testo.get_audio(idx, "paola")
+
+        # Act
+        with patch.object(engine_con_testo, "_synthesize", side_effect=fake_synthesize):
+            engine_con_testo.prefetch(idx, "paola")
+            assert started.wait(5)  # job running inside _synthesize
+
+            waiter = threading.Thread(target=caller)
+            waiter.start()
+            release.set()  # unblock the job
+            waiter.join(5)
+
+        # Assert — exactly one synthesis for the key
+        assert outcome.get("audio") == b"mp3"
+        assert calls == [(idx, "paola")]
+
+    def test_second_prefetch_is_noop(self, engine_con_testo):
+        """A second prefetch for a key with a running job must not submit again."""
+        # Arrange
+        started = threading.Event()
+        release = threading.Event()
+
+        def fake_synthesize(i, voice):
+            started.set()
+            assert release.wait(5)
+            return b"mp3"
+
+        # Act
+        with patch.object(engine_con_testo, "_synthesize", side_effect=fake_synthesize):
+            engine_con_testo.prefetch(0, "paola")
+            assert started.wait(5)
+            engine_con_testo.prefetch(0, "paola")  # must join, not resubmit
+            job = engine_con_testo._inflight["paola:0"]
+            release.set()
+            job.result(5)  # wait for the job to fully finish
+
+        # Assert
+        assert len(engine_con_testo._inflight) == 0
+        assert "paola:0" in engine_con_testo._cache
 
 
 # ===========================================================================

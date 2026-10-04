@@ -9,7 +9,7 @@ import logging
 import subprocess
 import threading
 from collections import OrderedDict
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 
 from src.config import PIPER_VOICES
@@ -66,6 +66,7 @@ class TTSEngine:
 
     def __init__(self):
         self._cache: OrderedDict[str, bytes] = OrderedDict()
+        self._inflight: dict[str, Future] = {}
         self._lock = threading.Lock()
         self._paragraphs: list[str] = []
         self._filename: str = ""
@@ -110,10 +111,13 @@ class TTSEngine:
         with self._lock:
             if cache_key in self._cache:
                 self._cache.move_to_end(cache_key)
+                log.info("Serving paragraph %d from cache (voice %s)", index, voice)
                 return self._cache[cache_key]
 
-        mp3_bytes = self._synthesize(index, voice)
-        self._put_cache(cache_key, mp3_bytes)
+        # Cache miss: join (or start) the in-flight job for this paragraph and
+        # wait on it, so the same text is never synthesized twice.
+        future = self._job_or_existing(index, voice, cache_key)
+        mp3_bytes = future.result()
 
         # Prefetch prossimo paragrafo in background
         if index + 1 < len(self._paragraphs):
@@ -122,22 +126,55 @@ class TTSEngine:
         return mp3_bytes
 
     def prefetch(self, index: int, voice: str):
-        """Lancia sintesi del paragrafo in background (thread pool)."""
+        """Ensure a background synthesis job for the paragraph.
+
+        Non-blocking: if a job is already in flight for the same key it is
+        shared instead of starting a second one.
+        """
         if index < 0 or index >= len(self._paragraphs):
             return
         cache_key = f"{voice}:{index}"
         with self._lock:
             if cache_key in self._cache:
                 return
+        self._job_or_existing(index, voice, cache_key)
 
-        def _do_prefetch():
-            try:
-                mp3 = self._synthesize(index, voice)
-                self._put_cache(cache_key, mp3)
-            except Exception:
-                log.warning("Prefetch paragrafo %d fallito", index, exc_info=True)
+    def _job_or_existing(self, index: int, voice: str, cache_key: str) -> Future:
+        """Return the in-flight job for cache_key, starting one if needed.
 
-        _executor.submit(_do_prefetch)
+        Submit happens outside the lock: the job body re-acquires it (cache
+        put / tracking pop), so it must never run on the calling thread while
+        this lock is held.
+        """
+        with self._lock:
+            existing = self._inflight.get(cache_key)
+        if existing is not None:
+            log.info("Paragraph %d still processing (voice %s); reusing job", index, voice)
+            return existing
+
+        future = _executor.submit(self._synth_job, index, voice, cache_key)
+        with self._lock:
+            winner = self._inflight.get(cache_key)
+            if winner is None:
+                self._inflight[cache_key] = future
+                return future
+            return winner
+
+    def _synth_job(self, index: int, voice: str, cache_key: str) -> bytes:
+        """Synthesis job body: synthesize, cache the result, clear the tracking.
+
+        Any exception is logged and re-raised so waiters on the future get it.
+        """
+        try:
+            mp3 = self._synthesize(index, voice)
+            self._put_cache(cache_key, mp3)
+            return mp3
+        except Exception:
+            log.warning("Synthesis failed for paragraph %d", index, exc_info=True)
+            raise
+        finally:
+            with self._lock:
+                self._inflight.pop(cache_key, None)
 
     def save_all(self, voice: str) -> bytes:
         """Sintetizza tutti i paragrafi e restituisce MP3 concatenato.
