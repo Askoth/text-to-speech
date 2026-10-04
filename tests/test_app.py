@@ -1,9 +1,9 @@
 """
 tests/test_app.py
-Test suite per TTS Reader: leggi, app (Flask), tts_engine.
+Test suite for TTS Reader: leggi, app (Flask), tts_engine.
 
-Dipendenze esterne (piper, ffmpeg) sono sempre mockate
-per garantire test isolati e veloci.
+External dependencies (piper, ffmpeg) are always mocked
+to guarantee isolated and fast tests.
 """
 
 import io
@@ -16,16 +16,16 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 # ===========================================================================
-# Test — leggi.py
+# Tests — leggi.py
 # ===========================================================================
 
 
-class TestMarkdownATesto:
-    """Test per il convertitore Markdown (fallback regex, senza pandoc)."""
+class TestMarkdownToText:
+    """Tests for the Markdown converter (regex fallback, no pandoc)."""
 
-    def _converti(self, markdown: str) -> str:
-        """Helper: converte Markdown via file temp con fallback regex forzato."""
-        from src.converters import file_a_testo
+    def _convert(self, markdown: str) -> str:
+        """Helper: converts Markdown via a temp file with forced regex fallback."""
+        from src.converters import file_to_text
 
         with tempfile.NamedTemporaryFile(
             suffix=".md", mode="w", encoding="utf-8", delete=False
@@ -35,54 +35,54 @@ class TestMarkdownATesto:
 
         try:
             with patch("src.converters.shutil.which", return_value=None):
-                return file_a_testo(tmp_path)
+                return file_to_text(tmp_path)
         finally:
             tmp_path.unlink(missing_ok=True)
 
-    def test_markdown_a_testo_headers(self):
-        """I titoli markdown (# ## ###) devono essere rimossi dal testo."""
+    def test_markdown_to_text_headers(self):
+        """Markdown titles (# ## ###) must be removed from the text."""
         # Arrange
         markdown = "# Titolo principale\n\n## Sottotitolo\n\n### Terzo livello"
 
         # Act
-        risultato = self._converti(markdown)
+        result = self._convert(markdown)
 
         # Assert
-        assert "#" not in risultato
-        assert "Titolo principale" in risultato
-        assert "Sottotitolo" in risultato
-        assert "Terzo livello" in risultato
+        assert "#" not in result
+        assert "Titolo principale" in result
+        assert "Sottotitolo" in result
+        assert "Terzo livello" in result
 
-    def test_markdown_a_testo_bold_italic(self):
-        """Bold (**testo**) e italic (*testo*) devono essere eliminati."""
+    def test_markdown_to_text_bold_italic(self):
+        """Bold (**text**) and italic (*text*) must be removed."""
         # Arrange
         markdown = "Questo è **grassetto** e questo è *corsivo*."
 
         # Act
-        risultato = self._converti(markdown)
+        result = self._convert(markdown)
 
         # Assert
-        assert "**" not in risultato
-        assert "*" not in risultato
-        assert "grassetto" in risultato
-        assert "corsivo" in risultato
+        assert "**" not in result
+        assert "*" not in result
+        assert "grassetto" in result
+        assert "corsivo" in result
 
-    def test_markdown_a_testo_links(self):
-        """I link [testo](url) devono diventare solo il testo visibile."""
+    def test_markdown_to_text_links(self):
+        """Links [text](url) must become only the visible text."""
         # Arrange
         markdown = "Visita [OpenAI](https://openai.com) per saperne di più."
 
         # Act
-        risultato = self._converti(markdown)
+        result = self._convert(markdown)
 
         # Assert
-        assert "https://openai.com" not in risultato
-        assert "[" not in risultato
-        assert "]" not in risultato
-        assert "OpenAI" in risultato
+        assert "https://openai.com" not in result
+        assert "[" not in result
+        assert "]" not in result
+        assert "OpenAI" in result
 
-    def test_markdown_a_testo_code_blocks(self):
-        """I blocchi di codice inline e multiriga devono essere rimossi."""
+    def test_markdown_to_text_code_blocks(self):
+        """Inline and multiline code blocks must be removed."""
         # Arrange
         markdown = (
             "Usa il comando `pip install flask` per installare.\n\n"
@@ -90,35 +90,35 @@ class TestMarkdownATesto:
         )
 
         # Act
-        risultato = self._converti(markdown)
+        result = self._convert(markdown)
 
         # Assert
-        assert "```" not in risultato
-        assert "`" not in risultato
-        # Il testo attorno ai code block rimane intatto
-        assert "Usa il comando" in risultato
-        assert "per installare." in risultato
+        assert "```" not in result
+        assert "`" not in result
+        # The text around the code block stays intact
+        assert "Usa il comando" in result
+        assert "per installare." in result
 
-    def test_markdown_a_testo_empty(self):
-        """Un file vuoto deve restituire una stringa vuota."""
+    def test_markdown_to_text_empty(self):
+        """An empty file must return an empty string."""
         # Arrange
         markdown = ""
 
         # Act
-        risultato = self._converti(markdown)
+        result = self._convert(markdown)
 
         # Assert
-        assert risultato == ""
+        assert result == ""
 
 
 # ===========================================================================
-# Test — app.py (Flask test client)
+# Tests — app.py (Flask test client)
 # ===========================================================================
 
 
 class TestIndexEndpoint:
     def test_index_returns_html(self, client):
-        """GET / deve restituire 200 con Content-Type text/html."""
+        """GET / must return 200 with Content-Type text/html."""
         # Act
         response = client.get("/")
 
@@ -129,7 +129,7 @@ class TestIndexEndpoint:
 
 class TestVoicesEndpoint:
     def test_voices_endpoint(self, client):
-        """GET /api/voices deve restituire le voci con struttura corretta."""
+        """GET /api/voices must return the voices with the correct structure."""
         from src.config import ALL_VOICES
 
         # Act
@@ -140,23 +140,23 @@ class TestVoicesEndpoint:
         assert response.status_code == 200
         assert "voices" in data
         assert "default" in data
-        ids_disponibili = {v["id"] for v in data["voices"]}
-        assert ids_disponibili == set(ALL_VOICES)
+        available_ids = {v["id"] for v in data["voices"]}
+        assert available_ids == set(ALL_VOICES)
 
-        # Ogni voce deve avere i campi obbligatori
-        campi_obbligatori = {"id", "label", "type", "multilingual", "gender", "lang"}
-        for voce in data["voices"]:
-            assert campi_obbligatori <= voce.keys(), (
-                f"Voce {voce.get('id')} mancante di campi: {campi_obbligatori - voce.keys()}"
+        # Each voice must have the required fields
+        required_fields = {"id", "label", "type", "multilingual", "gender", "lang"}
+        for voice in data["voices"]:
+            assert required_fields <= voice.keys(), (
+                f"Voice {voice.get('id')} missing fields: {required_fields - voice.keys()}"
             )
 
-        # Verifica che la voce di default esista nella lista
-        assert data["default"] in ids_disponibili
+        # Verify that the default voice exists in the list
+        assert data["default"] in available_ids
 
 
 class TestLoadEndpoint:
     def test_load_no_file(self, client):
-        """POST /api/load senza file deve restituire 400."""
+        """POST /api/load without a file must return 400."""
         # Act
         response = client.post("/api/load", data={})
 
@@ -165,7 +165,7 @@ class TestLoadEndpoint:
         assert "error" in response.get_json()
 
     def test_load_unsupported_format(self, client):
-        """POST /api/load con formato non supportato deve restituire 400."""
+        """POST /api/load with an unsupported format must return 400."""
         # Arrange
         file_csv = (io.BytesIO(b"a,b,c"), "dati.csv")
 
@@ -182,14 +182,14 @@ class TestLoadEndpoint:
         assert "error" in data
 
     def test_load_valid_file(self, client):
-        """POST /api/load con file .md valido deve restituire i paragrafi."""
+        """POST /api/load with a valid .md file must return the paragraphs."""
         # Arrange
-        contenuto_md = b"# Titolo\n\nPrimo paragrafo del documento.\n\nSecondo paragrafo."
-        file_md = (io.BytesIO(contenuto_md), "test.md")
+        md_content = b"# Titolo\n\nPrimo paragrafo del documento.\n\nSecondo paragrafo."
+        file_md = (io.BytesIO(md_content), "test.md")
 
         mock_paragraphs = ["Primo paragrafo del documento.", "Secondo paragrafo."]
 
-        # Act — mock engine.load_file per evitare pandoc/filesystem reali
+        # Act — mock engine.load_file to avoid real pandoc/filesystem
         with patch("src.app.engine.load_file", return_value=mock_paragraphs):
             response = client.post(
                 "/api/load",
@@ -206,7 +206,7 @@ class TestLoadEndpoint:
         assert data["total"] == len(mock_paragraphs)
         assert data["filename"] == "test.md"
 
-        # Ogni paragrafo deve avere idx, text, chars
+        # Each paragraph must have idx, text, chars
         for par in data["paragraphs"]:
             assert "idx" in par
             assert "text" in par
@@ -216,8 +216,8 @@ class TestLoadEndpoint:
 
 class TestAudioEndpoint:
     def test_audio_no_file_loaded(self, client):
-        """GET /api/audio/0 senza file caricato deve restituire 400."""
-        # Arrange — engine senza paragrafi (resettato dal fixture)
+        """GET /api/audio/0 without a loaded file must return 400."""
+        # Arrange — engine without paragraphs (reset by the fixture)
 
         # Act
         response = client.get("/api/audio/0")
@@ -227,7 +227,7 @@ class TestAudioEndpoint:
         assert "error" in response.get_json()
 
     def test_audio_invalid_voice(self, client):
-        """GET /api/audio/0?voice=nonexistent deve restituire 400."""
+        """GET /api/audio/0?voice=nonexistent must return 400."""
         # Act
         response = client.get("/api/audio/0?voice=nonexistent")
 
@@ -239,7 +239,7 @@ class TestAudioEndpoint:
 
 class TestSaveEndpoint:
     def test_save_no_file_loaded(self, client):
-        """POST /api/save senza file caricato deve restituire 400."""
+        """POST /api/save without a loaded file must return 400."""
         # Act
         response = client.post(
             "/api/save",
@@ -250,85 +250,85 @@ class TestSaveEndpoint:
         # Assert
         assert response.status_code == 400
         data = response.get_json()
-        assert data["error"]  # messaggio non vuoto
+        assert data["error"]  # non-empty message
         assert "caricato" in data["error"] or "loaded" in data["error"]
 
 
 # ===========================================================================
-# Test — tts_engine.py
+# Tests — tts_engine.py
 # ===========================================================================
 
 
 class TestTTSEngine:
     def test_engine_paragraphs_empty(self, engine):
-        """Un engine appena creato deve avere la lista paragrafi vuota."""
+        """A freshly created engine must have an empty paragraphs list."""
         # Assert
         assert engine.paragraphs == []
         assert engine.filename == ""
 
     def test_engine_load_text(self, engine):
-        """load_text deve splittare il testo per paragrafi doppi newline."""
+        """load_text must split the text on double newlines."""
         # Arrange
-        testo = "Primo paragrafo.\n\nSecondo paragrafo.\n\nTerzo paragrafo."
+        text = "Primo paragrafo.\n\nSecondo paragrafo.\n\nTerzo paragrafo."
         filename = "documento.md"
 
         # Act
-        paragrafi = engine.load_text(testo, filename)
+        paragraphs = engine.load_text(text, filename)
 
         # Assert
-        assert len(paragrafi) == 3
-        assert paragrafi[0] == "Primo paragrafo."
-        assert paragrafi[1] == "Secondo paragrafo."
-        assert paragrafi[2] == "Terzo paragrafo."
+        assert len(paragraphs) == 3
+        assert paragraphs[0] == "Primo paragrafo."
+        assert paragraphs[1] == "Secondo paragrafo."
+        assert paragraphs[2] == "Terzo paragrafo."
         assert engine.filename == filename
-        assert engine.paragraphs == paragrafi
+        assert engine.paragraphs == paragraphs
 
     def test_engine_load_text_strips_whitespace(self, engine):
-        """load_text deve eliminare paragrafi vuoti e spazi iniziali/finali."""
+        """load_text must drop empty paragraphs and leading/trailing spaces."""
         # Arrange
-        testo = "\n\n  Paragrafo con spazi  \n\n\n\nAltro paragrafo.\n\n"
+        text = "\n\n  Paragrafo con spazi  \n\n\n\nAltro paragrafo.\n\n"
 
         # Act
-        paragrafi = engine.load_text(testo, "test.md")
+        paragraphs = engine.load_text(text, "test.md")
 
-        # Assert — solo paragrafi non vuoti dopo strip
-        assert len(paragrafi) == 2
-        assert paragrafi[0] == "Paragrafo con spazi"
-        assert paragrafi[1] == "Altro paragrafo."
+        # Assert — only non-empty paragraphs after strip
+        assert len(paragraphs) == 2
+        assert paragraphs[0] == "Paragrafo con spazi"
+        assert paragraphs[1] == "Altro paragrafo."
 
     def test_engine_cache_hit(self, engine):
-        """get_audio deve usare la cache e non chiamare _synthesize due volte."""
+        """get_audio must use the cache and not call _synthesize twice."""
         # Arrange
         engine.load_text("Paragrafo di test.", "test.md")
         fake_mp3 = b"ID3\x00fake_mp3_content"
 
         with patch.object(engine, "_synthesize", return_value=fake_mp3) as mock_synth:
-            # Act — prima chiamata: sintesi + inserimento cache
-            risultato_1 = engine.get_audio(0, "paola")
+            # Act — first call: synthesis + cache insertion
+            result_1 = engine.get_audio(0, "paola")
 
-            # Resetto il mock per verificare che la seconda chiamata NON chiami _synthesize
+            # Reset the mock to verify the second call does NOT invoke _synthesize
             mock_synth.reset_mock()
 
-            # Act — seconda chiamata: deve usare la cache
-            risultato_2 = engine.get_audio(0, "paola")
+            # Act — second call: must use the cache
+            result_2 = engine.get_audio(0, "paola")
 
         # Assert
-        assert risultato_1 == fake_mp3
-        assert risultato_2 == fake_mp3
-        # La seconda chiamata NON deve aver invocato _synthesize
+        assert result_1 == fake_mp3
+        assert result_2 == fake_mp3
+        # The second call must NOT have invoked _synthesize
         mock_synth.assert_not_called()
 
     def test_engine_index_out_of_range(self, engine):
-        """get_audio con indice invalido deve sollevare IndexError."""
+        """get_audio with an invalid index must raise IndexError."""
         # Arrange
         engine.load_text("Un solo paragrafo.", "test.md")
 
-        # Act & Assert — indice troppo alto
+        # Act & Assert — index too high
         with pytest.raises(IndexError):
             engine.get_audio(99, "paola")
 
     def test_engine_index_negative(self, engine):
-        """get_audio con indice negativo deve sollevare IndexError."""
+        """get_audio with a negative index must raise IndexError."""
         # Arrange
         engine.load_text("Paragrafo.", "test.md")
 
@@ -337,7 +337,7 @@ class TestTTSEngine:
             engine.get_audio(-1, "paola")
 
     def test_engine_cache_different_voices(self, engine):
-        """Cache key include la voce: voci diverse non condividono cache."""
+        """Cache key includes the voice: different voices do not share the cache."""
         # Arrange
         engine.load_text("Paragrafo test.", "test.md")
         mp3_paola = b"mp3_paola"
@@ -346,7 +346,7 @@ class TestTTSEngine:
         def fake_synthesize(index, voice):
             return mp3_paola if voice == "paola" else mp3_maria
 
-        # patchiamo anche prefetch: il test copre solo le chiavi di cache
+        # We also patch prefetch: the test covers only cache keys
         with (
             patch.object(engine, "_synthesize", side_effect=fake_synthesize),
             patch.object(engine, "prefetch"),
@@ -355,20 +355,20 @@ class TestTTSEngine:
             audio_paola = engine.get_audio(0, "paola")
             audio_maria = engine.get_audio(0, "maria")
 
-        # Assert — risultati distinti per voce diversa
+        # Assert — distinct results per different voice
         assert audio_paola == mp3_paola
         assert audio_maria == mp3_maria
         assert audio_paola != audio_maria
 
 
 # ===========================================================================
-# Test — TTSEngine._synthesize
+# Tests — TTSEngine._synthesize
 # ===========================================================================
 
 
 class TestSynthesize:
     def test_synthesize_piper_loads_model_lazy(self, engine):
-        """_synthesize con voce Piper deve caricare il modello e convertire WAV in MP3."""
+        """_synthesize with a Piper voice must load the model and convert WAV to MP3."""
         # Arrange
         engine.load_text("Testo Piper.", "test.md")
         fake_wav = b"RIFF\x00\x00fake_wav"
@@ -376,7 +376,7 @@ class TestSynthesize:
 
         with (
             patch.object(engine, "_load_piper") as mock_load,
-            patch("src.tts_engine.sintetizza_piper", return_value=fake_wav),
+            patch("src.tts_engine.synthesize_piper", return_value=fake_wav),
             patch("src.tts_engine._wav_to_mp3_bytes", return_value=fake_mp3),
         ):
             # Act
@@ -388,13 +388,13 @@ class TestSynthesize:
 
 
 # ===========================================================================
-# Test — TTSEngine.save_all
+# Tests — TTSEngine.save_all
 # ===========================================================================
 
 
 class TestSaveAll:
     def test_save_all_concatenates_all_paragraphs(self, engine):
-        """save_all deve sintetizzare tutti i paragrafi e concatenarli."""
+        """save_all must synthesize all paragraphs and concatenate them."""
         # Arrange
         engine.load_text("Primo.\n\nSecondo.\n\nTerzo.", "test.md")
 
@@ -415,13 +415,13 @@ class TestSaveAll:
 
 
 # ===========================================================================
-# Test — TTSEngine.prefetch logging
+# Tests — TTSEngine.prefetch logging
 # ===========================================================================
 
 
 class TestPrefetchLogging:
     def test_prefetch_logs_warning_on_failure(self, engine):
-        """Il prefetch deve loggare un warning quando la sintesi fallisce."""
+        """Prefetch must log a warning when synthesis fails."""
         # Arrange
         engine.load_text("Paragrafo test.", "test.md")
 
@@ -431,24 +431,24 @@ class TestPrefetchLogging:
         ):
             # Act
             engine.prefetch(0, "paola")
-            # Attendi che il thread pool esegua il task
+            # Wait for the thread pool to run the task
             time.sleep(0.5)
 
         # Assert
         mock_log.warning.assert_called_once()
         call_args = mock_log.warning.call_args
         assert "Synthesis failed for paragraph" in call_args[0][0]
-        assert call_args[0][1] == 0  # indice del paragrafo
+        assert call_args[0][1] == 0  # paragraph index
 
 
 # ===========================================================================
-# Test — /api/save come endpoint POST
+# Tests — /api/save as a POST endpoint
 # ===========================================================================
 
 
 class TestSaveEndpointPost:
     def test_save_rejects_get(self, client):
-        """GET /api/save deve restituire 405 Method Not Allowed."""
+        """GET /api/save must return 405 Method Not Allowed."""
         # Act
         response = client.get("/api/save")
 
@@ -456,7 +456,7 @@ class TestSaveEndpointPost:
         assert response.status_code == 405
 
     def test_save_post_no_file_loaded(self, client):
-        """POST /api/save senza file caricato deve restituire 400."""
+        """POST /api/save without a loaded file must return 400."""
         # Act
         response = client.post(
             "/api/save",
@@ -471,7 +471,7 @@ class TestSaveEndpointPost:
         assert "caricato" in data["error"] or "loaded" in data["error"]
 
     def test_save_post_invalid_voice(self, client):
-        """POST /api/save con voce invalida deve restituire 400."""
+        """POST /api/save with an invalid voice must return 400."""
         # Act
         response = client.post(
             "/api/save",
@@ -484,13 +484,13 @@ class TestSaveEndpointPost:
 
 
 # ===========================================================================
-# Test — TTSEngine._load_piper double-checked locking
+# Tests — TTSEngine._load_piper double-checked locking
 # ===========================================================================
 
 
 class TestLoadPiper:
     def test_load_piper_called_once_with_concurrent_threads(self, engine):
-        """_load_piper deve caricare il modello una sola volta anche con thread concorrenti."""
+        """_load_piper must load the model only once even with concurrent threads."""
         # Arrange
         mock_voice = MagicMock()
         mock_voice.config.sample_rate = 22050
@@ -498,10 +498,10 @@ class TestLoadPiper:
         mock_piper_module.PiperVoice.load.return_value = mock_voice
 
         with (
-            patch("src.tts_engine.scarica_voce_piper"),
+            patch("src.tts_engine.download_piper_voice"),
             patch.dict("sys.modules", {"piper": mock_piper_module}),
         ):
-            # Act — 5 thread concorrenti che chiamano il vero _load_piper
+            # Act — 5 concurrent threads calling the real _load_piper
             threads = []
             for _ in range(5):
                 t = threading.Thread(target=engine._load_piper, args=("paola",))
@@ -510,6 +510,6 @@ class TestLoadPiper:
             for t in threads:
                 t.join()
 
-        # Assert — PiperVoice.load deve essere chiamato una sola volta
+        # Assert — PiperVoice.load must be called only once
         mock_piper_module.PiperVoice.load.assert_called_once()
         assert engine._piper_voices["paola"] is mock_voice

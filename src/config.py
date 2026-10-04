@@ -1,6 +1,6 @@
 """
 config.py
-Configurazione centralizzata: voci TTS, path modelli, costanti di progetto.
+Centralized configuration: TTS voices, model paths, project constants.
 """
 
 import shutil
@@ -8,22 +8,22 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-# ─── Directory di progetto ───────────────────────────────────────────────────
+# ─── Project directories ────────────────────────────────────────────────────
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 DATA_INPUT = PROJECT_ROOT / "data" / "input"
 DATA_OUTPUT = PROJECT_ROOT / "data" / "output"
 
-# ─── Configurazione voci ─────────────────────────────────────────────────────
+# ─── Voice configuration ───────────────────────────────────────────────────
 
-# Directory in cui risiedono i modelli Piper (sotto la home dell'utente).
+# Directory holding the Piper models (under the user's home).
 VOICE_DIR = Path.home() / "piper-voices"
 
-# Registro delle voci Piper. Una voce dichiara:
-#   model / json              -> path locali dei file .onnx e .onnx.json
-#   url_model / url_json      -> da dove scaricarli se mancanti
-#   gender / lang / multilingual -> metadati esposti a Web/CLI
-# Per aggiungere una voce basta aggiungere una entry qui.
+# Registry of Piper voices. A voice declares:
+#   model / json              -> local paths of the .onnx and .onnx.json files
+#   url_model / url_json      -> where to download them if missing
+#   gender / lang / multilingual -> metadata exposed to Web/CLI
+# To add a voice, add an entry here.
 
 
 @dataclass
@@ -53,7 +53,7 @@ class PiperVoices:
         for voice in self.voices:
             if voice.name == name:
                 return voice
-        raise KeyError(f"Voce Piper sconosciuta: {name}")
+        raise KeyError(f"Unknown Piper voice: {name}")
 
     def __iter__(self):
         return (voice.name for voice in self.voices)
@@ -92,7 +92,7 @@ PIPER_VOICES: PiperVoices = PiperVoices(
 ALL_VOICES = sorted(v.name for v in PIPER_VOICES.voices)
 DEFAULT_VOICE = "alba"
 
-# ─── Piattaforma e dipendenze di sistema ────────────────────────────────────
+# ─── Platform and system dependencies ───────────────────────────────────────
 
 PLATFORM = sys.platform  # "linux", "darwin", "win32"
 
@@ -118,57 +118,57 @@ _INSTALL_COMMANDS = {
 }
 
 
-def suggerisci_installazione(pacchetto: str) -> str:
-    """Restituisce il comando di installazione per il pacchetto sull'OS corrente."""
-    comandi = _INSTALL_COMMANDS.get(PLATFORM, {})
-    return comandi.get(pacchetto, f"Installa '{pacchetto}' con il package manager del tuo sistema")
+def suggest_installation(package: str) -> str:
+    """Return the install command for the package on the current OS."""
+    commands = _INSTALL_COMMANDS.get(PLATFORM, {})
+    return commands.get(package, f"Install '{package}' with your system package manager")
 
 
-def verifica_prerequisiti(modalita: str = "cli") -> list[str]:
-    """Verifica le dipendenze di sistema e stampa warning/errori.
+def check_prerequisites(mode: str = "cli") -> list[str]:
+    """Check system dependencies and print warnings/errors.
 
     Parameters
     ----------
-    modalita : str
-        "cli" per leggi.py (serve player audio), "web" per app.py (serve solo ffmpeg).
+    mode : str
+        "cli" for reader.py (needs an audio player), "web" for app.py (needs only ffmpeg).
 
     Returns
     -------
     list[str]
-        Lista di errori critici. Vuota se tutto OK.
+        List of critical errors. Empty if everything is OK.
     """
-    errori = []
+    errors = []
 
-    # ffmpeg: obbligatorio per entrambe le modalità
+    # ffmpeg: required for both modes
     if not shutil.which("ffmpeg"):
-        msg = f"ffmpeg non trovato (obbligatorio).\n         {suggerisci_installazione('ffmpeg')}"
+        msg = f"ffmpeg not found (required).\n         {suggest_installation('ffmpeg')}"
         error(msg)
-        errori.append("ffmpeg")
+        errors.append("ffmpeg")
 
-    # Player audio: rilevante solo per CLI
-    if modalita == "cli":
-        ha_player = False
+    # Audio player: only relevant for CLI
+    if mode == "cli":
+        has_player = False
         if PLATFORM == "darwin":
-            ha_player = bool(shutil.which("afplay") or shutil.which("ffplay"))
+            has_player = bool(shutil.which("afplay") or shutil.which("ffplay"))
         elif PLATFORM == "win32":
-            ha_player = bool(shutil.which("ffplay"))
+            has_player = bool(shutil.which("ffplay"))
         else:
-            ha_player = bool(shutil.which("aplay") or shutil.which("ffplay"))
+            has_player = bool(shutil.which("aplay") or shutil.which("ffplay"))
 
-        if not ha_player:
-            warn("Nessun player audio trovato. La riproduzione non funzionerà.")
+        if not has_player:
+            warn("No audio player found. Playback will not work.")
             warn(
-                f"Installa ffmpeg (include ffplay):\n         {suggerisci_installazione('ffmpeg')}"
+                f"Install ffmpeg (includes ffplay):\n         {suggest_installation('ffmpeg')}"
             )
 
-    # pandoc: opzionale
+    # pandoc: optional
     if not shutil.which("pandoc"):
-        warn("pandoc non trovato (opzionale, migliora la conversione Markdown)")
+        warn("pandoc not found (optional, improves Markdown conversion)")
 
-    return errori
+    return errors
 
 
-# ─── Colori terminale ────────────────────────────────────────────────────────
+# ─── Terminal colors ────────────────────────────────────────────────────────
 
 GREEN = "\033[0;32m"
 YELLOW = "\033[1;33m"
@@ -185,4 +185,4 @@ def warn(msg):
 
 
 def error(msg):
-    print(f"{RED}[ERRORE]{NC} {msg}", flush=True)
+    print(f"{RED}[ERROR]{NC} {msg}", flush=True)

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
 leggi.py
-Wrapper per mantenere compatibilità con il comando: python leggi.py
+Wrapper to maintain compatibility with the command: python leggi.py
 
-Il codice reale è in src/leggi.py
+The real code is in src/leggi.py
 """
 
 if __name__ == "__main__":

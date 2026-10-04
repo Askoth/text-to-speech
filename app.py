@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 """
 app.py
-Wrapper per mantenere compatibilità con il comando: python app.py
+Wrapper to maintain compatibility with the command: python app.py
 
-Il codice reale è in src/app.py
+The real code is in src/app.py
 """
 
 if __name__ == "__main__":
     import os
 
     from src.app import app
-    from src.config import verifica_prerequisiti
+    from src.config import check_prerequisites
 
-    errori = verifica_prerequisiti(modalita="web")
-    if errori:
+    errors = check_prerequisites(mode="web")
+    if errors:
         raise SystemExit(1)
 
     debug = os.environ.get("FLASK_DEBUG", "0") == "1"

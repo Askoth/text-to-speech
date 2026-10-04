@@ -1,9 +1,9 @@
 """
 synthesis.py
-Funzioni di sintesi vocale: Piper TTS (offline), Edge TTS (online), download modelli.
+Speech synthesis functions: Piper TTS (offline), Edge TTS (online), model downloads.
 
-Questo modulo è importato sia dal web server (tts_engine.py) sia dalla CLI (leggi.py).
-Non deve mai chiamare sys.exit() — gli errori sono segnalati tramite eccezioni.
+This module is imported by both the web server (tts_engine.py) and the CLI (reader.py).
+It must never call sys.exit() — errors are signaled through exceptions.
 """
 
 import io
@@ -19,73 +19,73 @@ from src.config import (
 )
 
 
-def scarica_voce_piper(voce: str):
-    """Scarica i file (modello + config) della voce Piper se non già presenti.
+def download_piper_voice(voice: str):
+    """Download the Piper voice files (model + config) if not already present.
 
     Parameters
     ----------
-    voce : str
-        Nome voce nel registro PIPER_VOICES.
+    voice : str
+        Voice name in the PIPER_VOICES registry.
 
     Raises
     ------
     ValueError
-        Se la voce non è nel registro.
+        If the voice is not in the registry.
     RuntimeError
-        Se il download fallisce.
+        If the download fails.
     """
-    if voce not in PIPER_VOICES:
-        raise ValueError(f"Voce Piper sconosciuta: {voce}")
-    cfg = PIPER_VOICES[voce]
+    if voice not in PIPER_VOICES:
+        raise ValueError(f"Unknown Piper voice: {voice}")
+    cfg = PIPER_VOICES[voice]
     VOICE_DIR.mkdir(parents=True, exist_ok=True)
     for dest, url in (
         (cfg.model, cfg.url_model),
         (cfg.json, cfg.url_json),
     ):
         if dest.exists():
-            info(f"Voce già presente: {dest.name}")
+            info(f"Voice already present: {dest.name}")
             continue
-        warn(f"Scarico {dest.name} ...")
+        warn(f"Downloading {dest.name} ...")
         try:
             with urllib.request.urlopen(url) as response, open(dest, "wb") as f:  # noqa: S310
                 total = int(response.headers.get("Content-Length", 0))
-                scaricati = 0
+                downloaded = 0
                 while True:
                     chunk = response.read(1024 * 64)
                     if not chunk:
                         break
                     f.write(chunk)
-                    scaricati += len(chunk)
+                    downloaded += len(chunk)
                     if total:
-                        print(f"\r  {scaricati / total * 100:.1f}%", end="", flush=True)
+                        print(f"\r  {downloaded / total * 100:.1f}%", end="", flush=True)
             print()
-            info(f"{dest.name} scaricato.")
+            info(f"{dest.name} downloaded.")
         except Exception as e:
-            error(f"Errore durante il download: {e}")
-            raise RuntimeError(f"Download voce Piper fallito: {e}") from e
+            error(f"Error during download: {e}")
+            raise RuntimeError(f"Piper voice download failed: {e}") from e
 
 
-def sintetizza_piper(voce_piper, testo: str, sample_rate: int) -> bytes:
-    """Sintetizza testo con Piper TTS.
+def synthesize_piper(piper_voice, text: str, sample_rate: int) -> bytes:
+    """Synthesize text with Piper TTS.
 
     Parameters
     ----------
-    voce_piper : PiperVoice
-        Istanza del modello Piper caricato.
-    testo : str
-        Testo da sintetizzare.
+    piper_voice : PiperVoice
+        Loaded instance of the Piper model.
+    text : str
+        Text to synthesize.
     sample_rate : int
-        Frequenza di campionamento del modello.
+        Sample rate of the model.
 
     Returns
     -------
     bytes
-        Audio WAV in memoria.
+        In-memory WAV audio.
     """
     buf = io.BytesIO()
     with wave.open(buf, "wb") as wf:
         wf.setnchannels(1)
         wf.setsampwidth(2)
         wf.setframerate(sample_rate)
-        voce_piper.synthesize_wav(testo, wf)
+        piper_voice.synthesize_wav(text, wf)
     return buf.getvalue()

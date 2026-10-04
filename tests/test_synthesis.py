@@ -1,6 +1,6 @@
 """
 tests/test_synthesis.py
-Test per le funzioni di sintesi vocale: Piper TTS.
+Tests for the voice synthesis functions: Piper TTS.
 """
 
 import io
@@ -11,11 +11,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from src.config import PiperVoices, Voice
-from src.synthesis import scarica_voce_piper, sintetizza_piper
+from src.synthesis import download_piper_voice, synthesize_piper
 
 
 def _registry(tmp_path: Path, existing: tuple[str, ...] = ()) -> PiperVoices:
-    """Registro 'paola' con model/json sotto tmp_path (crea i file in existing)."""
+    """'paola' registry with model/json under tmp_path (create files in existing)."""
     with patch("src.config.VOICE_DIR", tmp_path):
         voice = Voice(
             name="paola",
@@ -31,7 +31,7 @@ def _registry(tmp_path: Path, existing: tuple[str, ...] = ()) -> PiperVoices:
 
 
 def _make_response(headers: dict, chunks: list[bytes]) -> MagicMock:
-    """Risposta urlopen mock: read() restituisce i chunks in sequenza."""
+    """Mock urlopen response: read() returns the chunks in sequence."""
     mock = MagicMock()
     mock.headers = headers
     mock.read.side_effect = [*chunks, b""]
@@ -41,57 +41,57 @@ def _make_response(headers: dict, chunks: list[bytes]) -> MagicMock:
 
 
 # ===========================================================================
-# Test — sintetizza_piper
+# Tests — synthesize_piper
 # ===========================================================================
 
 
-class TestSintetizzaPiper:
-    """Test per la sintesi WAV con Piper."""
+class TestSynthesizePiper:
+    """Tests for WAV synthesis with Piper."""
 
-    def test_restituisce_wav_valido(self):
-        """Il risultato deve essere un WAV mono 16-bit con il sample rate dato."""
-        mock_voce = MagicMock()
+    def test_returns_valid_wav(self):
+        """The result must be a mono 16-bit WAV with the given sample rate."""
+        mock_voice = MagicMock()
         sample_rate = 22050
 
-        risultato = sintetizza_piper(mock_voce, "Ciao mondo", sample_rate)
+        result = synthesize_piper(mock_voice, "Ciao mondo", sample_rate)
 
-        assert isinstance(risultato, bytes)
-        with wave.open(io.BytesIO(risultato), "rb") as wf:
+        assert isinstance(result, bytes)
+        with wave.open(io.BytesIO(result), "rb") as wf:
             assert wf.getnchannels() == 1
             assert wf.getsampwidth() == 2
             assert wf.getframerate() == sample_rate
 
-    def test_chiama_synthesize_wav_con_testo(self):
-        """Deve passare il testo e il wave writer a PiperVoice."""
-        mock_voce = MagicMock()
-        testo = "Paragrafo di prova"
+    def test_calls_synthesize_wav_with_text(self):
+        """Must pass the text and the wave writer to PiperVoice."""
+        mock_voice = MagicMock()
+        text = "Paragrafo di prova"
 
-        sintetizza_piper(mock_voce, testo, 16000)
+        synthesize_piper(mock_voice, text, 16000)
 
-        mock_voce.synthesize_wav.assert_called_once()
-        args = mock_voce.synthesize_wav.call_args
-        assert args[0][0] == testo
+        mock_voice.synthesize_wav.assert_called_once()
+        args = mock_voice.synthesize_wav.call_args
+        assert args[0][0] == text
 
-    def test_sample_rate_diversi(self):
-        """Deve rispettare il sample rate fornito."""
-        mock_voce = MagicMock()
+    def test_different_sample_rates(self):
+        """Must respect the provided sample rate."""
+        mock_voice = MagicMock()
 
         for sr in [16000, 22050, 44100]:
-            risultato = sintetizza_piper(mock_voce, "Test", sr)
-            with wave.open(io.BytesIO(risultato), "rb") as wf:
+            result = synthesize_piper(mock_voice, "Test", sr)
+            with wave.open(io.BytesIO(result), "rb") as wf:
                 assert wf.getframerate() == sr
 
 
 # ===========================================================================
-# Test — scarica_voce_piper (download e errore)
+# Tests — download_piper_voice (download and errors)
 # ===========================================================================
 
 
-class TestScaricaVocePiperDownload:
-    """Test per il download effettivo e la gestione errori."""
+class TestDownloadPiperVoiceDownload:
+    """Tests for the actual download and error handling."""
 
-    def test_download_effettivo_scrive_file(self, tmp_path):
-        """Deve scaricare e scrivere i file se non esistono."""
+    def test_actual_download_writes_files(self, tmp_path):
+        """Must download and write the files if they do not exist."""
         mock_urlopen = MagicMock()
         mock_urlopen.side_effect = [
             _make_response({"Content-Length": "128"}, [b"x" * 64, b"y" * 64]),
@@ -104,13 +104,13 @@ class TestScaricaVocePiperDownload:
             patch("src.synthesis.urllib.request.urlopen", mock_urlopen),
             patch("builtins.print"),
         ):
-            scarica_voce_piper("paola")
+            download_piper_voice("paola")
 
         assert (tmp_path / "model.onnx").read_bytes() == b"x" * 64 + b"y" * 64
         assert (tmp_path / "model.onnx.json").read_bytes() == b"z" * 64
 
-    def test_download_fallito_solleva_runtime_error(self, tmp_path):
-        """Deve sollevare RuntimeError se il download fallisce."""
+    def test_failed_download_raises_runtime_error(self, tmp_path):
+        """Must raise RuntimeError if the download fails."""
         with (
             patch("src.synthesis.VOICE_DIR", tmp_path),
             patch("src.synthesis.PIPER_VOICES", _registry(tmp_path)),
@@ -118,12 +118,12 @@ class TestScaricaVocePiperDownload:
                 "src.synthesis.urllib.request.urlopen",
                 side_effect=ConnectionError("Network down"),
             ),
-            pytest.raises(RuntimeError, match="Download voce Piper fallito"),
+            pytest.raises(RuntimeError, match="Piper voice download failed"),
         ):
-            scarica_voce_piper("paola")
+            download_piper_voice("paola")
 
-    def test_download_senza_content_length(self, tmp_path):
-        """Deve funzionare anche senza header Content-Length (no progress bar)."""
+    def test_download_without_content_length(self, tmp_path):
+        """Must work even without the Content-Length header (no progress bar)."""
         mock_urlopen = MagicMock()
         mock_urlopen.side_effect = [
             _make_response({}, [b"data"]),
@@ -136,7 +136,7 @@ class TestScaricaVocePiperDownload:
             patch("src.synthesis.urllib.request.urlopen", mock_urlopen),
             patch("builtins.print"),
         ):
-            scarica_voce_piper("paola")
+            download_piper_voice("paola")
 
         assert (tmp_path / "model.onnx").read_bytes() == b"data"
         assert (tmp_path / "model.onnx.json").read_bytes() == b"data2"
