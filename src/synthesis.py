@@ -39,8 +39,8 @@ def scarica_voce_piper(voce: str):
     cfg = PIPER_VOICES[voce]
     VOICE_DIR.mkdir(parents=True, exist_ok=True)
     for dest, url in (
-        (cfg["model"], cfg["url_model"]),
-        (cfg["json"], cfg["url_json"]),
+        (cfg.model, cfg.url_model),
+        (cfg.json, cfg.url_json),
     ):
         if dest.exists():
             info(f"Voce già presente: {dest.name}")

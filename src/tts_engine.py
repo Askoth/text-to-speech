@@ -174,7 +174,7 @@ class TTSEngine:
 
             scarica_voce_piper(voice)
             cfg = PIPER_VOICES[voice]
-            voce_piper = PiperVoice.load(str(cfg["model"]), config_path=str(cfg["json"]))
+            voce_piper = PiperVoice.load(str(cfg.model), config_path=str(cfg.json))
             self._piper_voices[voice] = voce_piper
             return voce_piper
 

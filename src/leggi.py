@@ -193,7 +193,7 @@ def leggi_con_piper(
 
     cfg = PIPER_VOICES[voce]
     info(f"Carico la voce {voce}...")
-    piper_voice = PiperVoice.load(str(cfg["model"]), config_path=str(cfg["json"]))
+    piper_voice = PiperVoice.load(str(cfg.model), config_path=str(cfg.json))
     sample_rate = piper_voice.config.sample_rate
 
     paragrafi = [p.strip() for p in testo.split("\n\n") if p.strip()]
@@ -356,11 +356,8 @@ struttura output (con --salva):
 
     info(f"Testo estratto: {len(testo)} caratteri")
 
-    if args.voice in PIPER_VOICES:
-        scarica_voce_piper(args.voice)
-        leggi_con_piper(testo, args.voice, salva_path=salva_path, cartella_par=cartella_par)
-    else:
-        error("Ha provatto da utilisare edge ma non c'e")
+    scarica_voce_piper(args.voice)
+    leggi_con_piper(testo, args.voice, salva_path=salva_path, cartella_par=cartella_par)
 
     info("Fine.")
 

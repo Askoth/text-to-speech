@@ -5,6 +5,7 @@ Configurazione centralizzata: voci TTS, path modelli, costanti di progetto.
 
 import shutil
 import sys
+from dataclasses import dataclass, field
 from pathlib import Path
 
 # ─── Directory di progetto ───────────────────────────────────────────────────
@@ -23,28 +24,64 @@ VOICE_DIR = Path.home() / "piper-voices"
 #   url_model / url_json      -> da dove scaricarli se mancanti
 #   gender / lang / multilingual -> metadati esposti a Web/CLI
 # Per aggiungere una voce basta aggiungere una entry qui.
-PIPER_VOICES = {
-    "paola": {
-        "gender": "F",
-        "lang": "it",
-        "multilingual": False,
-        "model": VOICE_DIR / "it_IT-paola-medium.onnx",
-        "json": VOICE_DIR / "it_IT-paola-medium.onnx.json",
-        "url_model": "https://huggingface.co/rhasspy/piper-voices/resolve/main/it/it_IT/paola/medium/it_IT-paola-medium.onnx",
-        "url_json": "https://huggingface.co/rhasspy/piper-voices/resolve/main/it/it_IT/paola/medium/it_IT-paola-medium.onnx.json",
-    },
-    "alba": {
-        "gender": "F",
-        "lang": "en",
-        "multilingual": False,
-        "model": VOICE_DIR / "en_GB-alba-medium.onnx",
-        "json": VOICE_DIR / "en_GB-alba-medium.onnx.json",
-        "url_model": "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/alba/medium/en_GB-alba-medium.onnx",
-        "url_json": "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/alba/medium/en_GB-alba-medium.onnx.json",
-    },
-}
 
-ALL_VOICES = sorted(PIPER_VOICES)
+
+@dataclass
+class Voice:
+    name: str
+    gender: str
+    lang: str
+    multilingual: bool
+    model: Path = field(init=False)
+    json: Path = field(init=False)
+    url_model: str
+    url_json: str
+
+    def __post_init__(self):
+        self.model = VOICE_DIR / self.url_model.split("/")[-1]
+        self.json = VOICE_DIR / self.url_json.split("/")[-1]
+
+
+@dataclass
+class PiperVoices:
+    voices: list[Voice]
+
+    def __contains__(self, name: str) -> bool:
+        return any(voice.name == name for voice in self.voices)
+
+    def __getitem__(self, name: str) -> Voice:
+        for voice in self.voices:
+            if voice.name == name:
+                return voice
+        raise KeyError(f"Voce Piper sconosciuta: {name}")
+
+    def __iter__(self):
+        return (voice.name for voice in self.voices)
+
+
+PIPER_VOICES: PiperVoices = PiperVoices(
+    [
+        Voice(
+            name="paola",
+            gender="F",
+            lang="it",
+            multilingual=False,
+            url_model="https://huggingface.co/rhasspy/piper-voices/resolve/main/it/it_IT/paola/medium/it_IT-paola-medium.onnx",
+            url_json="https://huggingface.co/rhasspy/piper-voices/resolve/main/it/it_IT/paola/medium/it_IT-paola-medium.onnx.json",
+        ),
+        Voice(
+            name="alba",
+            gender="F",
+            lang="en",
+            multilingual=False,
+            url_model="https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/alba/medium/en_GB-alba-medium.onnx",
+            url_json="https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/alba/medium/en_GB-alba-medium.onnx.json",
+        ),
+    ]
+)
+
+
+ALL_VOICES = sorted(v.name for v in PIPER_VOICES.voices)
 DEFAULT_VOICE = "paola"
 
 # ─── Piattaforma e dipendenze di sistema ────────────────────────────────────

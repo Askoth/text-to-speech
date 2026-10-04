@@ -5,19 +5,39 @@ Test per le funzioni di sintesi vocale: Piper TTS.
 
 import io
 import wave
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+from src.config import PiperVoices, Voice
 from src.synthesis import scarica_voce_piper, sintetizza_piper
 
 
-def _mock_dest(exists: bool, name: str) -> MagicMock:
-    """Simula un path del modello: .exists() restituisce il flag, .name il file."""
-    d = MagicMock()
-    d.exists.return_value = exists
-    d.name = name
-    return d
+def _registry(tmp_path: Path, existing: tuple[str, ...] = ()) -> PiperVoices:
+    """Registro 'paola' con model/json sotto tmp_path (crea i file in existing)."""
+    with patch("src.config.VOICE_DIR", tmp_path):
+        voice = Voice(
+            name="paola",
+            gender="F",
+            lang="it",
+            multilingual=False,
+            url_model="http://example.com/model.onnx",
+            url_json="http://example.com/model.onnx.json",
+        )
+    for name in existing:
+        (tmp_path / name).touch()
+    return PiperVoices([voice])
+
+
+def _make_response(headers: dict, chunks: list[bytes]) -> MagicMock:
+    """Risposta urlopen mock: read() restituisce i chunks in sequenza."""
+    mock = MagicMock()
+    mock.headers = headers
+    mock.read.side_effect = [*chunks, b""]
+    mock.__enter__.return_value = mock
+    mock.__exit__.return_value = False
+    return mock
 
 
 # ===========================================================================
@@ -70,52 +90,30 @@ class TestSintetizzaPiper:
 class TestScaricaVocePiperDownload:
     """Test per il download effettivo e la gestione errori."""
 
-    def test_download_effettivo_scrive_file(self):
-        """Deve scaricare e scrivere il file se non esiste."""
-        mock_response = MagicMock()
-        mock_response.headers = {"Content-Length": "128"}
-        mock_response.read.side_effect = [b"x" * 64, b"y" * 64, b""]
-        mock_response.__enter__ = MagicMock(return_value=mock_response)
-        mock_response.__exit__ = MagicMock(return_value=False)
-
-        mock_file = MagicMock()
-        mock_file.__enter__ = MagicMock(return_value=mock_file)
-        mock_file.__exit__ = MagicMock(return_value=False)
-
-        registry = {
-            "paola": {
-                "model": _mock_dest(False, "model.onnx"),
-                "json": _mock_dest(True, "model.onnx.json"),
-                "url_model": "http://example.com/model.onnx",
-                "url_json": "http://example.com/model.onnx.json",
-            }
-        }
+    def test_download_effettivo_scrive_file(self, tmp_path):
+        """Deve scaricare e scrivere i file se non esistono."""
+        mock_urlopen = MagicMock()
+        mock_urlopen.side_effect = [
+            _make_response({"Content-Length": "128"}, [b"x" * 64, b"y" * 64]),
+            _make_response({"Content-Length": "128"}, [b"z" * 64]),
+        ]
 
         with (
-            patch("src.synthesis.VOICE_DIR"),
-            patch("src.synthesis.PIPER_VOICES", registry),
-            patch("src.synthesis.urllib.request.urlopen", return_value=mock_response),
-            patch("builtins.open", return_value=mock_file),
+            patch("src.synthesis.VOICE_DIR", tmp_path),
+            patch("src.synthesis.PIPER_VOICES", _registry(tmp_path)),
+            patch("src.synthesis.urllib.request.urlopen", mock_urlopen),
             patch("builtins.print"),
         ):
             scarica_voce_piper("paola")
 
-        assert mock_file.write.call_count == 2
+        assert (tmp_path / "model.onnx").read_bytes() == b"x" * 64 + b"y" * 64
+        assert (tmp_path / "model.onnx.json").read_bytes() == b"z" * 64
 
-    def test_download_fallito_solleva_runtime_error(self):
+    def test_download_fallito_solleva_runtime_error(self, tmp_path):
         """Deve sollevare RuntimeError se il download fallisce."""
-        registry = {
-            "paola": {
-                "model": _mock_dest(False, "model.onnx"),
-                "json": _mock_dest(True, "model.onnx.json"),
-                "url_model": "http://example.com/model.onnx",
-                "url_json": "http://example.com/model.onnx.json",
-            }
-        }
-
         with (
-            patch("src.synthesis.VOICE_DIR"),
-            patch("src.synthesis.PIPER_VOICES", registry),
+            patch("src.synthesis.VOICE_DIR", tmp_path),
+            patch("src.synthesis.PIPER_VOICES", _registry(tmp_path)),
             patch(
                 "src.synthesis.urllib.request.urlopen",
                 side_effect=ConnectionError("Network down"),
@@ -124,34 +122,21 @@ class TestScaricaVocePiperDownload:
         ):
             scarica_voce_piper("paola")
 
-    def test_download_senza_content_length(self):
+    def test_download_senza_content_length(self, tmp_path):
         """Deve funzionare anche senza header Content-Length (no progress bar)."""
-        mock_response = MagicMock()
-        mock_response.headers = {}
-        mock_response.read.side_effect = [b"data", b""]
-        mock_response.__enter__ = MagicMock(return_value=mock_response)
-        mock_response.__exit__ = MagicMock(return_value=False)
-
-        mock_file = MagicMock()
-        mock_file.__enter__ = MagicMock(return_value=mock_file)
-        mock_file.__exit__ = MagicMock(return_value=False)
-
-        registry = {
-            "paola": {
-                "model": _mock_dest(False, "model.onnx"),
-                "json": _mock_dest(True, "model.onnx.json"),
-                "url_model": "http://example.com/model.onnx",
-                "url_json": "http://example.com/model.onnx.json",
-            }
-        }
+        mock_urlopen = MagicMock()
+        mock_urlopen.side_effect = [
+            _make_response({}, [b"data"]),
+            _make_response({}, [b"data2"]),
+        ]
 
         with (
-            patch("src.synthesis.VOICE_DIR"),
-            patch("src.synthesis.PIPER_VOICES", registry),
-            patch("src.synthesis.urllib.request.urlopen", return_value=mock_response),
-            patch("builtins.open", return_value=mock_file),
+            patch("src.synthesis.VOICE_DIR", tmp_path),
+            patch("src.synthesis.PIPER_VOICES", _registry(tmp_path)),
+            patch("src.synthesis.urllib.request.urlopen", mock_urlopen),
             patch("builtins.print"),
         ):
             scarica_voce_piper("paola")
 
-        mock_file.write.assert_called_once_with(b"data")
+        assert (tmp_path / "model.onnx").read_bytes() == b"data"
+        assert (tmp_path / "model.onnx.json").read_bytes() == b"data2"

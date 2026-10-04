@@ -14,16 +14,25 @@ import wave
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
-
-def _mock_dest(exists: bool, name: str) -> MagicMock:
-    """Simula un path del modello: .exists() restituisce il flag, .name il file."""
-    d = MagicMock()
-    d.exists.return_value = exists
-    d.name = name
-    return d
-
-
 import pytest
+
+from src.config import PiperVoices, Voice
+
+
+def _registry(tmp_path: Path, existing: tuple[str, ...] = ()) -> PiperVoices:
+    """Registro 'paola' con model/json sotto tmp_path (crea i file in existing)."""
+    with patch("src.config.VOICE_DIR", tmp_path):
+        voice = Voice(
+            name="paola",
+            gender="F",
+            lang="it",
+            multilingual=False,
+            url_model="http://example.com/model.onnx",
+            url_json="http://example.com/model.onnx.json",
+        )
+    for name in existing:
+        (tmp_path / name).touch()
+    return PiperVoices([voice])
 
 # ===========================================================================
 # Test — Costanti e configurazione voci
@@ -58,11 +67,11 @@ class TestVoiceConstants:
         """Ogni voce Piper deve avere model, json e le relative URL di download."""
         from src.config import PIPER_VOICES
 
-        for vid, cfg in PIPER_VOICES.items():
-            assert cfg["model"], f"voce {vid} senza model"
-            assert cfg["json"], f"voce {vid} senza json"
-            assert cfg["url_model"], f"voce {vid} senza url_model"
-            assert cfg["url_json"], f"voce {vid} senza url_json"
+        for voice in PIPER_VOICES.voices:
+            assert voice.model, f"voce {voice.name} senza model"
+            assert voice.json, f"voce {voice.name} senza json"
+            assert voice.url_model, f"voce {voice.name} senza url_model"
+            assert voice.url_json, f"voce {voice.name} senza url_json"
 
     def test_voice_model_path_uses_home_directory(self):
         """VOICE_DIR deve essere sotto la home directory dell'utente."""
@@ -363,44 +372,30 @@ class TestConcatenaWav:
 class TestScaricaVocePiper:
     """Test per il download del modello Piper (con mock di rete)."""
 
-    def test_skip_download_se_file_esistono(self):
+    def test_skip_download_se_file_esistono(self, tmp_path):
         """Non deve scaricare se i file del modello esistono già."""
         from src.synthesis import scarica_voce_piper
 
-        # Arrange
-        registry = {
-            "paola": {
-                "model": _mock_dest(True, "model.onnx"),
-                "json": _mock_dest(True, "model.onnx.json"),
-                "url_model": "http://example.com/model",
-                "url_json": "http://example.com/model.json",
-            }
-        }
+        # Arrange — file già presenti in tmp_path
+        registry = _registry(tmp_path, existing=("model.onnx", "model.onnx.json"))
 
         with (
-            patch("src.synthesis.VOICE_DIR"),
+            patch("src.synthesis.VOICE_DIR", tmp_path),
             patch("src.synthesis.PIPER_VOICES", registry),
             patch("src.synthesis.urllib.request.urlopen") as mock_urlopen,
         ):
             # Act
             scarica_voce_piper("paola")
 
-        # Assert — urlopen non deve essere chiamato (tutto già scaricato)
-        mock_urlopen.assert_not_called()
+            # Assert — urlopen non deve essere chiamato (tutto già scaricato)
+            mock_urlopen.assert_not_called()
 
-    def test_crea_directory_se_non_esiste(self):
+    def test_crea_directory_se_non_esiste(self, tmp_path):
         """Deve creare la directory dei modelli con parents=True."""
         from src.synthesis import scarica_voce_piper
 
         # Arrange — file presenti, si verifica solo la mkdir
-        registry = {
-            "paola": {
-                "model": _mock_dest(True, "model.onnx"),
-                "json": _mock_dest(True, "model.onnx.json"),
-                "url_model": "http://example.com/model",
-                "url_json": "http://example.com/model.json",
-            }
-        }
+        registry = _registry(tmp_path, existing=("model.onnx", "model.onnx.json"))
 
         with (
             patch("src.synthesis.VOICE_DIR") as mock_dir,

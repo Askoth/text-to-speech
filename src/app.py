@@ -37,14 +37,14 @@ log = logging.getLogger(__name__)
 # Derivare metadati voci dalla sorgente unica
 VOICES_META = [
     {
-        "id": vid,
-        "label": vid.capitalize(),
+        "id": v.name,
+        "label": v.name.capitalize(),
         "type": "piper",
-        "multilingual": cfg["multilingual"],
-        "gender": cfg["gender"],
-        "lang": cfg["lang"],
+        "multilingual": v.multilingual,
+        "gender": v.gender,
+        "lang": v.lang,
     }
-    for vid, cfg in sorted(PIPER_VOICES.items())
+    for v in sorted(PIPER_VOICES.voices, key=lambda v: v.name)
 ]
 
 
@@ -78,7 +78,6 @@ def index():
 
 @app.route("/api/voices")
 def api_voices():
-    lang = get_lang(request)
     return jsonify(
         {
             "voices": VOICES_META,
