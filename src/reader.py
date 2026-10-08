@@ -324,7 +324,7 @@ output structure (with --save):
         help=f"Voice to use (default: {DEFAULT_VOICE})",
     )
     parser.add_argument(
-        "--salva",
+        "--save",
         action="store_true",
         help="Save the audio to data/output/<file_name>/",
     )
@@ -343,7 +343,7 @@ output structure (with --save):
 
     save_path = None
     paragraphs_dir = None
-    if args.salva:
+    if args.save:
         _, save_path, paragraphs_dir = calc_output_path(args.file)
         info(f"Output: {save_path.parent.parent}/")
 

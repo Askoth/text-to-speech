@@ -153,13 +153,13 @@ python reader.py document.md --voice ava
 python reader.py file.md --voice paola
 
 # Save as MP3
-python reader.py file.md --voice giuseppe --salva
+python reader.py file.md --voice giuseppe --save
 ```
 
 **Note:** Reading styles are only available in the web interface. The CLI uses
 the default neutral style for all voices.
 
-With `--salva`, the following structure is created:
+With `--save`, the following structure is created:
 ```
 data/output/<filename>/
 ├── full/<filename>.mp3       # Complete audio
@@ -273,7 +273,7 @@ text-to-speech/
 │   └── setup.ps1      # Automated setup Windows
 ├── data/
 │   ├── input/          # Source files to read
-│   └── output/         # Audio generated with --salva
+│   └── output/         # Audio generated with --save
 ├── requirements.txt    # Python dependencies
 └── README.md
 ```
