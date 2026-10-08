@@ -15,6 +15,7 @@ dependencies = [
     "lxml==6.1.0",
     "mypy>=2.4.0",
     "piper-tts==1.4.1",
+    "PyQt5==5.15.11",  # GUI (prebuilt wheel; verified to run on this host CPU)
     "pygments==2.20.0",
     "pymupdf==1.27.2.2",
     "pytest==9.0.3",
