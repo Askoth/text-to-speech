@@ -101,7 +101,7 @@ def _convert_epub(path: Path) -> str:
     """Extract text from an EPUB, chapter by chapter."""
     import warnings
 
-    import ebooklib
+    import ebooklib  # type: ignore[import-untyped]
     from bs4 import BeautifulSoup, XMLParsedAsHTMLWarning
     from ebooklib import epub
 
@@ -168,8 +168,8 @@ def _convert_pdf(path: Path) -> str:
     doc = pymupdf.open(str(path))
     texts = []
 
-    for page in doc:
-        text = page.get_text("text").strip()
+    for i in range(doc.page_count):
+        text = doc[i].get_text("text").strip()
         if text:
             texts.append(text)
     doc.close()

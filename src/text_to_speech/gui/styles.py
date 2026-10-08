@@ -4,6 +4,8 @@ Every color here is either a palette role read verbatim or a
 :data:`theme.STATE` opacity applied to a role — no other derivation.
 """
 
+from typing import cast
+
 from PyQt5.QtGui import QColor, QPalette
 from PyQt5.QtWidgets import QApplication
 
@@ -205,5 +207,8 @@ def banner_style(t: theme.Theme, severity: str = "error") -> str:
 def apply(t: theme.Theme) -> None:
     """Apply the palette + stylesheet to the running ``QApplication``."""
     app = QApplication.instance()
-    app.setPalette(build_palette(t))
-    app.setStyleSheet(build_stylesheet(t))
+    if app is None:
+        raise RuntimeError("apply() needs a running QApplication")
+    qapp = cast("QApplication", app)
+    qapp.setPalette(build_palette(t))
+    qapp.setStyleSheet(build_stylesheet(t))

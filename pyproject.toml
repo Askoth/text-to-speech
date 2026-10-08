@@ -27,6 +27,9 @@ dependencies = [
 [project.scripts]
 text-to-speech = "text_to_speech:main"
 
+[tool.mypy]
+files = ["src", "app.py", "reader.py", "tests"]
+
 [build-system]
 requires = ["uv_build>=0.12.22,<0.13.0"]
 build-backend = "uv_build"

@@ -196,8 +196,7 @@ class TestTr:
 
         # Assert
         assert keys_it == keys_en, (
-            f"Missing keys — only in IT: {keys_it - keys_en}, "
-            f"only in EN: {keys_en - keys_it}"
+            f"Missing keys — only in IT: {keys_it - keys_en}, only in EN: {keys_en - keys_it}"
         )
 
 

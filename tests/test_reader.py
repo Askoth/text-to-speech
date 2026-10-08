@@ -34,6 +34,7 @@ def _registry(tmp_path: Path, existing: tuple[str, ...] = ()) -> PiperVoices:
         (tmp_path / name).touch()
     return PiperVoices([voice])
 
+
 # ===========================================================================
 # Tests — voice configuration constants
 # ===========================================================================

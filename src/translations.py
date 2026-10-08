@@ -3,7 +3,7 @@ translations.py
 Traduzioni backend per messaggi API e label degli stili di lettura.
 """
 
-TRANSLATIONS = {
+TRANSLATIONS: dict[str, dict[str, object]] = {
     "it": {
         "error.file_too_large": "File troppo grande (max 50 MB)",
         "error.no_file": "Nessun file inviato",
@@ -88,6 +88,8 @@ def tr(lang: str, key: str, **kwargs) -> str:
     """Restituisce la traduzione per lingua e chiave, con interpolazione."""
     msgs = TRANSLATIONS.get(lang, TRANSLATIONS[DEFAULT_LANG])
     text = msgs.get(key, TRANSLATIONS[DEFAULT_LANG].get(key, key))
+    if not isinstance(text, str):
+        text = key
     if kwargs:
         text = text.format(**kwargs)
     return text

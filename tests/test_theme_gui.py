@@ -5,9 +5,10 @@ Skipped when PyQt5 is not installed (it is not a declared dependency until T9).
 
 import pytest
 
-py = pytest.importorskip("PyQt5.QtGui")
-
-from PyQt5.QtGui import QColor, QPalette
+try:
+    from PyQt5.QtGui import QColor, QPalette
+except ImportError:
+    pytest.importorskip("PyQt5 not installed")
 
 from src.config import THEME_ROLES
 from src.text_to_speech.gui import styles, theme

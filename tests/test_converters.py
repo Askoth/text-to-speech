@@ -380,7 +380,7 @@ class TestConvertEpub:
 
     def _make_epub(self, tmp_path: Path, chapters: list[str]) -> Path:
         """Helper: creates a minimal EPUB with the given chapters."""
-        from ebooklib import epub
+        from ebooklib import epub  # type: ignore[import-untyped]
 
         book = epub.EpubBook()
         book.set_identifier("test-id-123")
@@ -435,7 +435,7 @@ class TestConvertEpub:
 
     def test_epub_removes_script(self, tmp_path):
         """Any script tags in the EPUB must be removed."""
-        from ebooklib import epub
+        from ebooklib import epub  # type: ignore[import-untyped]
 
         # Arrange
         book = epub.EpubBook()

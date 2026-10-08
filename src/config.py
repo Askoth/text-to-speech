@@ -86,8 +86,14 @@ def _norm_voice(d):
         return None
     if not url_model or not url_json:
         return None
-    return {"name": name, "gender": gender, "lang": lang,
-            "multilingual": multi, "url_model": url_model, "url_json": url_json}
+    return {
+        "name": name,
+        "gender": gender,
+        "lang": lang,
+        "multilingual": multi,
+        "url_model": url_model,
+        "url_json": url_json,
+    }
 
 
 def _normalize(data):
@@ -139,7 +145,8 @@ def _normalize(data):
     # --- resolve last_voice against the voice list ---
     names = {d["name"] for d in voice_dicts}
     default_voice = (
-        last_voice if (isinstance(last_voice, str) and last_voice in names)
+        last_voice
+        if (isinstance(last_voice, str) and last_voice in names)
         else (voice_dicts[0]["name"] if voice_dicts else "alba")
     )
     if default_voice != last_voice:
@@ -269,6 +276,7 @@ def validate_settings(data: dict) -> list[str]:
     raw = data.get("voices")
     if not isinstance(raw, list) or len(raw) == 0:
         errors.append("Missing or empty 'voices' — at least one valid [[voices]] entry is required")
+        raw = []
     else:
         seen: set[str] = set()
         for i, v in enumerate(raw):

@@ -23,20 +23,20 @@ last_voice = "alba"
 # url_model, url_json. The on-disk filenames are derived from each URL (the
 # last path segment), so they need not be written here.
 [[voices]]
-name = "paola"
-gender = "F"
-lang = "it"
-multilingual = false
-url_model = "https://huggingface.co/rhasspy/piper-voices/resolve/main/it/it_IT/paola/medium/it_IT-paola-medium.onnx"
-url_json  = "https://huggingface.co/rhasspy/piper-voices/resolve/main/it/it_IT/paola/medium/it_IT-paola-medium.onnx.json"
-
-[[voices]]
 name = "alba"
 gender = "F"
 lang = "en"
 multilingual = false
 url_model = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/alba/medium/en_GB-alba-medium.onnx"
 url_json  = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/alba/medium/en_GB-alba-medium.onnx.json"
+
+[[voices]]
+name = "paola"
+gender = "F"
+lang = "it"
+multilingual = false
+url_model = "https://huggingface.co/rhasspy/piper-voices/resolve/main/it/it_IT/paola/medium/it_IT-paola-medium.onnx"
+url_json  = "https://huggingface.co/rhasspy/piper-voices/resolve/main/it/it_IT/paola/medium/it_IT-paola-medium.onnx.json"
 
 [[voices]]
 name = "southern_english_female"
