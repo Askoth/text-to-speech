@@ -1,0 +1,47 @@
+# Default TTS reader settings.
+#
+# This file is copied to  ~/.config/text-to-speech/settings.toml
+# on first run (if that live file is missing) and is then the single source
+# of truth. Edit the live file, not this one.
+
+# Language: "en" | "it"
+lang = "en"
+
+# Last used voice. Must match a [[voices]].name below. If it matches no voice
+# it is ignored and the first voice in the list is used instead.
+last_voice = "alba"
+
+# Optional: directory where Piper voice models (.onnx) and their .onnx.json
+# metadata are stored. If you omit this line (or delete it) the app uses its
+# built-in default:  ~/.local/share/text-to-speech/piper-voices
+#   (i.e. $XDG_DATA_HOME/text-to-speech/piper-voices when XDG_DATA_HOME is set).
+# `~` and environment variables are expanded.
+# voice_dir = "~/.local/share/text-to-speech/piper-voices"
+
+# Voices are a list of [[voices]] tables. At least one valid voice is required.
+# Each voice needs: name, gender ("F" | "M"), lang, multilingual (bool),
+# url_model, url_json. The on-disk filenames are derived from each URL (the
+# last path segment), so they need not be written here.
+[[voices]]
+name = "paola"
+gender = "F"
+lang = "it"
+multilingual = false
+url_model = "https://huggingface.co/rhasspy/piper-voices/resolve/main/it/it_IT/paola/medium/it_IT-paola-medium.onnx"
+url_json  = "https://huggingface.co/rhasspy/piper-voices/resolve/main/it/it_IT/paola/medium/it_IT-paola-medium.onnx.json"
+
+[[voices]]
+name = "alba"
+gender = "F"
+lang = "en"
+multilingual = false
+url_model = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/alba/medium/en_GB-alba-medium.onnx"
+url_json  = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/alba/medium/en_GB-alba-medium.onnx.json"
+
+[[voices]]
+name = "southern_english_female"
+gender = "F"
+lang = "en"
+multilingual = false
+url_model = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/southern_english_female/medium/southern_english_female-medium.onnx"
+url_json  = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/southern_english_female/medium/southern_english_female-medium.onnx.json"

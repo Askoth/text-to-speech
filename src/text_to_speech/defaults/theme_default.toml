@@ -1,0 +1,50 @@
+# Default TTS reader theme (concrete colors).
+#
+# This file is copied to  ~/.config/text-to-speech/theme.toml  on first run and
+# is then the source of truth. The app reads each value verbatim as a concrete
+# color and applies it to the matching role — it does NO color math.
+#
+# Acceptable forms:  "#rrggbb"  |  "#rgb"  |  "rgba(r,g,b,a)"
+#   - r,g,b are 0..255; a is an alpha 0..1.
+#   - an 8-digit hex like "#805c50ff" is also accepted.
+#
+# These values are the **dark** default, ported from the web UI (static/style.css).
+# A later Noctalia template will regenerate this file from a palette + filters,
+# writing these same concrete roles.
+
+# Surfaces
+bg            = "#14181c"
+card          = "#1e262e"
+bar           = "#1b222a"
+
+# Text
+text          = "#e6e6e6"
+text_muted    = "#9aa4b0"
+text_dim      = "#6b7684"
+
+# Buttons
+btn           = "#2a333d"
+btn_hover     = "#3a4652"
+btn_active    = "#4a5866"
+
+# Accent (primary action color)
+accent        = "#5c8aff"
+accent_hover  = "#7aa2ff"
+on_accent     = "#0e121a"
+
+# Progress bar
+progress_bg   = "rgba(255,255,255,0.08)"
+progress_fg   = "#5c8aff"
+
+# Error / danger (banner)
+error_text    = "#ff6b6b"
+error_bg      = "rgba(255,107,107,0.12)"
+error_banner_bg    = "rgba(255,107,107,0.12)"
+error_banner_border = "rgba(255,107,107,0.30)"
+
+# Borders
+border         = "rgba(255,255,255,0.08)"
+border_strong = "rgba(255,255,255,0.18)"
+
+# Glow / emphasis (translucent accent)
+accent_glow    = "rgba(92,138,255,0.18)"
