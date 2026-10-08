@@ -13,9 +13,14 @@ fallback if partial, seed + warning if invalid) and never writes. The GUI calls
 :func:`ensure_seeded` once at startup to copy the seed into place on first run;
 the web/CLI only call :func:`load_settings` (no seeding). :func:`validate_settings`
 is the pure, strict schema check used by ``text-to-speech validate``.
+
+:func:`load_theme` does the same for ``theme.toml`` (standard Noctalia color
+tokens), and :func:`parse_color` is the pure color-string parser shared by the
+GUI theme and ``text-to-speech validate``.
 """
 
 import os
+import re
 import shutil
 import sys
 import tomllib
@@ -299,6 +304,87 @@ def validate_settings(data: dict) -> list[str]:
                 errors.append(f"last_voice '{lv}' does not match any [[voices]].name")
 
     return errors
+
+
+# ─── Theme API ──────────────────────────────────────────────────────────────
+
+# Standard Noctalia Material color tokens consumed by the GUI theme.
+THEME_ROLES = (
+    "surface",
+    "surface_container",
+    "surface_container_high",
+    "on_surface",
+    "on_surface_variant",
+    "primary",
+    "on_primary",
+    "hover",
+    "on_hover",
+    "outline",
+    "outline_variant",
+    "error",
+    "on_error",
+    "error_container",
+    "on_error_container",
+)
+
+_RGBA_RE = re.compile(r"rgba\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*([0-9.]+)\s*\)")
+_HEX_DIGITS = "0123456789abcdef"
+
+
+def parse_color(value):
+    """Parse one theme value into ``(r, g, b, a)`` — ints, with alpha float 0..1.
+
+    Acceptable forms:  ``#rgb``, ``#rrggbb``, ``#rrggbbaa``  and  ``rgba(r,g,b,a)``.
+    Returns ``None`` for anything else.
+    """
+    if not isinstance(value, str):
+        return None
+    s = value.strip().lower()
+    if s.startswith("#"):
+        h = s[1:]
+        if len(h) in (3, 6, 8) and all(c in _HEX_DIGITS for c in h):
+            if len(h) == 3:
+                h = "".join(c * 2 for c in h)
+            r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+            a = int(h[6:8], 16) / 255 if len(h) == 8 else 1.0
+            return r, g, b, a
+        return None
+    m = _RGBA_RE.fullmatch(s)
+    if not m:
+        return None
+    r, g, b, a = int(m[1]), int(m[2]), int(m[3]), float(m[4])
+    if max(r, g, b) > 255 or not 0.0 <= a <= 1.0:
+        return None
+    return r, g, b, a
+
+
+def load_theme() -> tuple[dict[str, str], list[str]]:
+    """Load + validate the live theme file (standard Noctalia tokens). Never writes.
+
+    Returns ``(values, warnings)`` — ``values`` maps every role in
+    :data:`THEME_ROLES` to its concrete color string, with per-key fallback to
+    the seed when a value is missing or invalid. A missing or unparsable file
+    falls back to the whole seed plus a warning.
+    """
+    seed = _toml_load(_SEED_THEME)
+    try:
+        data = _toml_load(theme_path())
+    except (tomllib.TOMLDecodeError, OSError):
+        return dict(seed), ["theme.toml is missing or invalid — using the built-in theme."]
+    warnings: list[str] = []
+    values: dict[str, str] = {}
+    for role in THEME_ROLES:
+        raw = data.get(role)
+        if raw is not None and parse_color(raw) is not None:
+            values[role] = raw
+        else:
+            if raw is not None:
+                warnings.append(f"'{role}' is not a valid color — using the built-in value.")
+            values[role] = seed[role]
+    for key in data:
+        if key not in THEME_ROLES:
+            warnings.append(f"'{key}' is not a known theme role — ignored.")
+    return values, warnings
 
 
 # ─── Project directories (used by converters / temp I/O) ───────────────────
