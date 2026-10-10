@@ -169,6 +169,54 @@ data/output/<filename>/
     └── ...
 ```
 
+### Desktop GUI (PyQt5)
+
+```bash
+source venv/bin/activate
+python gui.py
+```
+
+A native desktop application (no browser required). Features:
+
+- Open a file via the file picker (MD, TXT, EPUB, DOCX, HTML, PDF)
+- Choose a voice from the dropdown
+- Player controls: Start, Prev, Play/Pause, Stop, Next, Repeat
+- Progress bar with paragraph counter
+- Save the full audio as MP3 (Save-As dialog)
+- Keyboard shortcuts: `Space` play/pause, `←` prev, `→` next, `R` repeat
+- Adaptive layout (collapses toolbar/controls on small windows)
+- Single-instance guard (only one GUI may run at a time)
+
+### CLI Validate
+
+```bash
+python -m text_to_speech validate
+```
+
+Strictly validates both `settings.toml` and `theme.toml`. Prints specific errors
+to stderr (one per line). Exit 0 = valid, 1 = invalid.
+
+## Configuration Files
+
+The GUI and CLI read user configuration from XDG-standard paths:
+
+| File | Path | Purpose |
+|------|------|---------|
+| Settings | `~/.config/text-to-speech/settings.toml` | Voices, language, last voice, model dir |
+| Theme | `~/.config/text-to-speech/theme.toml` | 15 color roles (Noctalia Material tokens) |
+| Voice models | `~/.local/share/text-to-speech/piper-voices/` | Piper ONNX models |
+| Log | `~/.cache/text-to-speech/text-to-speech.log` | Debug log (`--verbose`) |
+
+On first GUI launch, seed files are copied into place automatically. Edit them
+to customize voices or colors. The `validate` command checks both files strictly.
+
+**Theme contract:** the theme uses 15 standard Noctalia Material color tokens
+(`surface`, `surface_container`, `surface_container_high`, `on_surface`,
+`on_surface_variant`, `primary`, `on_primary`, `hover`, `on_hover`, `outline`,
+`outline_variant`, `error`, `on_error`, `error_container`, `on_error_container`).
+Values are `#rgb`, `#rrggbb`, `#rrggbbaa`, or `rgba(r,g,b,a)` (a = 0..1).
+A Noctalia template can render `theme.toml` 1:1 from the active palette.
+
 ## Available Voices
 
 ![Voice selection dropdown with 8 available voices](./assets/voice-selection.png)
@@ -212,8 +260,10 @@ for a detailed overview of all mechanisms in place.
 %%{init: {'theme': 'neutral'}}%%
 graph LR
     browser["Browser"]
+    gui["Desktop GUI (gui.py)"]
     cli["CLI (reader.py)"]
     flask["Flask Server"]
+    gui_app["GUI (PyQt5)"]
     tts_engine["TTSEngine"]
     conv["converters.py"]
     synth["synthesis.py"]
@@ -221,9 +271,12 @@ graph LR
     piper_model["Piper TTS Model"]
     lru_cache["LRU Cache"]
     cfg["config.py"]
+    files["settings.toml + theme.toml"]
 
     browser -->|upload file| flask
     browser -->|request audio| flask
+    gui -->|open file| gui_app
+    gui_app -->|load file| tts_engine
     cli -->|read file| conv
     flask -->|parse file| conv
     flask -->|get audio| tts_engine
@@ -233,17 +286,17 @@ graph LR
     synth -->|offline| piper_model
     cfg -.->|voices, styles| flask
     cfg -.->|voices, paths| tts_engine
+    files -.->|load| cfg
 
     classDef core fill:#2563eb,stroke:#1d4ed8,color:#fff
     classDef data fill:#d97706,stroke:#b45309,color:#fff
     classDef ext fill:#6b7280,stroke:#4b5563,color:#fff
     classDef engine_cls fill:#059669,stroke:#047857,color:#fff
 
-    class browser,cli core
-    class flask,tts_engine engine_cls
+    class browser,gui,cli core
+    class flask,tts_engine,gui_app engine_cls
     class conv,synth,cfg data
-    class edge_api,piper_model ext
-    class lru_cache ext
+    class edge_api,piper_model,lru_cache,files ext
 ```
 
 For detailed technical diagrams (playback sequence, conversion pipeline), see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
@@ -252,13 +305,28 @@ For detailed technical diagrams (playback sequence, conversion pipeline), see [d
 
 ```
 text-to-speech/
+├── gui.py              # Desktop GUI shim → text_to_speech.gui:main
 ├── app.py              # Flask web server
+├── reader.py           # CLI: terminal reading
 ├── tts_engine.py       # TTS engine with cache and prefetch
 ├── synthesis.py        # Speech synthesis functions (Piper, Edge)
-├── config.py           # Voice configuration, model paths, constants
-├── translations.py     # Backend translations (API messages, styles)
-├── reader.py            # CLI: terminal reading
+├── config.py           # File-backed config loader (no values in code)
 ├── converters.py       # Format converters → plain text
+├── translations.py     # Backend translations (API messages)
+├── src/text_to_speech/
+│   ├── __init__.py     # CLI dispatcher (validate)
+│   ├── cli.py          # validate command
+│   ├── defaults/
+│   │   ├── settings_default.toml  # Seed settings
+│   │   └── theme_default.toml     # Seed theme
+│   └── gui/
+│       ├── __init__.py  # GUI bootstrap (main)
+│       ├── app.py       # QApplication + single-instance
+│       ├── window.py    # QMainWindow + adaptive layout
+│       ├── player.py    # QMediaPlayer + TTSEngine
+│       ├── theme.py     # theme.toml → QColor map
+│       ├── styles.py    # Qt stylesheet from theme roles
+│       └── strings.py   # i18n (IT/EN)
 ├── static/
 │   ├── style.css       # Design system (Ink & Amber)
 │   ├── player.js       # JavaScript audio player

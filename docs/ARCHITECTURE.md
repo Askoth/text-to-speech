@@ -4,14 +4,16 @@ Technical diagrams for the TTS Reader project. For a high-level overview, see th
 
 ## System Architecture
 
-Two entry points (Browser and CLI) share the same conversion and synthesis pipeline.
+Three entry points (Browser, Desktop GUI, and CLI) share the same conversion and synthesis pipeline.
 
 ```mermaid
 %%{init: {'theme': 'neutral'}}%%
 graph LR
     browser["Browser"]
+    gui["Desktop GUI (gui.py)"]
     cli["CLI (reader.py)"]
     flask["Flask Server"]
+    gui_app["GUI (PyQt5)"]
     tts_engine["TTSEngine"]
     conv["converters.py"]
     synth["synthesis.py"]
@@ -19,9 +21,12 @@ graph LR
     piper_model["Piper TTS Model"]
     lru_cache["LRU Cache"]
     cfg["config.py"]
+    files["settings.toml + theme.toml"]
 
     browser -->|upload file| flask
     browser -->|request audio| flask
+    gui -->|open file| gui_app
+    gui_app -->|load file| tts_engine
     cli -->|read file| conv
     flask -->|parse file| conv
     flask -->|get audio| tts_engine
@@ -31,20 +36,24 @@ graph LR
     synth -->|offline| piper_model
     cfg -.->|voices, styles| flask
     cfg -.->|voices, paths| tts_engine
+    files -.->|load| cfg
 
     classDef core fill:#2563eb,stroke:#1d4ed8,color:#fff
     classDef data fill:#d97706,stroke:#b45309,color:#fff
     classDef ext fill:#6b7280,stroke:#4b5563,color:#fff
     classDef engine_cls fill:#059669,stroke:#047857,color:#fff
 
-    class browser,cli core
-    class flask,tts_engine engine_cls
+    class browser,gui,cli core
+    class flask,tts_engine,gui_app engine_cls
     class conv,synth,cfg data
-    class edge_api,piper_model ext
-    class lru_cache ext
+    class edge_api,piper_model,lru_cache,files ext
 ```
 
-**Color legend:** blue = entry points, green = core engine, amber = internal modules, grey = external services/cache.
+**Color legend:** blue = entry points, green = core engine, amber = internal modules, grey = external services/cache/config files.
+
+Three entry points share the same conversion and synthesis pipeline: the web interface (Flask),
+the desktop GUI (PyQt5), and the CLI (reader.py). The GUI and CLI validate command read
+user config from `settings.toml` + `theme.toml` (XDG paths).
 
 ## Web Playback Sequence
 
