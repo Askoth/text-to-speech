@@ -89,6 +89,12 @@ class Player:
         self._cleanup_temp()
         return self._paragraphs
 
+    def prefetch_first(self) -> None:
+        """Start background synthesis of paragraph 0 (called after load_file)."""
+        if self._total > 0 and self._voice:
+            self._engine.prefetch(0, self._voice)
+            self._prefetch_idx = 0
+
     def play(self) -> None:
         """Start or resume playback."""
         if self._total == 0:

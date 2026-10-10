@@ -6,9 +6,11 @@ and player controls switch to a single compact row. All breakpoints live in
 """
 
 from enum import Enum
+from pathlib import Path
 
 from PyQt5.QtWidgets import (
     QComboBox,
+    QFileDialog,
     QFrame,
     QLabel,
     QProgressBar,
@@ -120,6 +122,8 @@ class Window:
 
         self._reader_card = card
         self._reader_area = scroll
+        self._empty_title = empty_title
+        self._empty_sub = empty_sub
 
     def _build_bottom_bar(self) -> None:
         bar = QFrame()
@@ -287,3 +291,61 @@ class Window:
     def _collapse_controls(self) -> None:
         """Switch player controls to compact single-row layout."""
         pass
+
+    def open_file(self) -> str:
+        """Show file dialog, load the chosen file, reset player. Returns path or ''."""
+        if self._main is None:
+            return ""
+        path, _ = QFileDialog.getOpenFileName(
+            self._main,
+            _strings.t("toolbar.chooseFileAria"),
+            "",
+            "Text files (*.md *.txt *.epub *.docx *.html *.htm *.pdf)",
+        )
+        if not path:
+            return ""
+        self._player.load_file(Path(path))
+        if self._file_name_label:
+            self._file_name_label.setText(Path(path).name)
+        self.hide_empty_state()
+        self.update_progress()
+        self.sync_controls()
+        self._player.prefetch_first()
+        return path
+
+    def save_mp3(self) -> None:
+        """Show save dialog, synthesize all paragraphs, write MP3."""
+        if self._main is None or self._player.total == 0:
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self._main,
+            _strings.t("toolbar.saveTitle"),
+            "",
+            "MP3 files (*.mp3)",
+        )
+        if not path:
+            return
+        self._save_btn.setEnabled(False)
+        self.set_spinner(True)
+        self.show_banner(
+            _strings.t("toolbar.saveBtn"),
+            severity="info",
+        )
+
+        voice = self._player.voice
+
+        mp3_data = self._player._engine.save_all(voice)
+
+        with open(path, "wb") as f:
+            f.write(mp3_data)
+
+        self.set_spinner(False)
+        self._save_btn.setEnabled(True)
+        self.show_banner(f"Saved to {path}", severity="info")
+
+    def dismiss_banner(self) -> None:
+        """Hide the status banner."""
+        if self._banner:
+            self._banner.setVisible(False)
+        if self._banner_label:
+            self._banner_label.setText("")
