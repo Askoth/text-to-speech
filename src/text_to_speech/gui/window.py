@@ -47,6 +47,10 @@ class _MainWindow(QMainWindow):
         if self._window is not None:
             self._window.apply_adaptive_layout()
 
+    def closeEvent(self, _event) -> None:
+        if self._window is not None:
+            self._window.release_player()
+
 
 class Window:
     """QMainWindow with toolbar / reader / bottom-bar layout."""
@@ -454,3 +458,7 @@ class Window:
             self._banner.setVisible(False)
         if self._banner_label:
             self._banner_label.setText("")
+
+    def release_player(self) -> None:
+        """Release player resources when the window is closed."""
+        self._player.shutdown()

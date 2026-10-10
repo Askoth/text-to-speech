@@ -12,7 +12,7 @@ from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
 from pathlib import Path
 
-from PyQt5.QtCore import QUrl
+from PyQt5.QtCore import QObject, QUrl, pyqtSignal
 from PyQt5.QtMultimedia import QMediaContent, QMediaPlayer
 
 from src.tts_engine import TTSEngine
@@ -25,10 +25,18 @@ class State(Enum):
     PAUSED = "paused"
 
 
-class Player:
-    """Manages QMediaPlayer playback of synthesized paragraphs."""
+class Player(QObject):
+    """Manages QMediaPlayer playback of synthesized paragraphs.
+
+    ``audio_ready`` marshals synthesized bytes from the synthesis worker back to
+    the main thread: QMediaPlayer is not thread-safe, so every Qt call happens
+    in the connected slot, never in a worker.
+    """
+
+    audio_ready = pyqtSignal(object, int)
 
     def __init__(self, engine: TTSEngine):
+        super().__init__()
         self._engine = engine
         self._media = QMediaPlayer()
         self._media.mediaStatusChanged.connect(self._on_media_status)
@@ -44,6 +52,8 @@ class Player:
         self._prefetch_idx: int = -1
 
         self._spinner_active: bool = False
+
+        self.audio_ready.connect(self._on_audio_ready)
 
     @property
     def state(self) -> State:
@@ -178,14 +188,20 @@ class Player:
 
         voice = self._voice
         future = _executor.submit(self._engine.get_audio, idx, voice)
-        future.add_done_callback(lambda f: self._on_audio_ready(f, idx))
+        future.add_done_callback(lambda f: self._hand_off(f, idx))
 
-    def _on_audio_ready(self, future, idx: int) -> None:
-        """Called when synthesis completes — feed audio to QMediaPlayer."""
-        self._spinner_active = False
+    def _hand_off(self, future, idx: int) -> None:
+        """Runs on the worker thread: only extract the payload and emit it."""
         try:
-            mp3_bytes = future.result()
+            payload = future.result()
         except Exception:
+            payload = None
+        self.audio_ready.emit(payload, idx)
+
+    def _on_audio_ready(self, mp3_bytes: object, idx: int) -> None:
+        """Main-thread slot for :attr:`audio_ready` — feed audio to QMediaPlayer."""
+        self._spinner_active = False
+        if not isinstance(mp3_bytes, bytes):
             self._state = State.IDLE
             return
 
@@ -270,6 +286,10 @@ class Player:
 
     def repeat_enabled(self) -> bool:
         return self._total > 0
+
+    def shutdown(self) -> None:
+        """Release the synthesis pool (called from the window's closeEvent)."""
+        _executor.shutdown(wait=False)
 
 
 _executor = ThreadPoolExecutor(max_workers=2)
