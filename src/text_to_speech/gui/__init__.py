@@ -52,12 +52,12 @@ def main(*, verbose: bool = False) -> int:
 
     engine = TTSEngine()
     p = _player_mod.Player(engine)
-    w = _window_mod.Window(p)
+    w = _window_mod.Window(p, theme_obj)
     w.build()
 
     if config_warnings:
         w.show_empty_state()
-        w.show_banner(config_warnings[0], severity="warning")
+        w.show_banner("\n".join(config_warnings), severity="warning")
 
     voices = cfg["voices"]
     if w._voice_combo is not None:
@@ -99,4 +99,5 @@ def _setup_logging() -> None:
         filename=str(log_path),
         level=logging.DEBUG,
         format="%(asctime)s %(name)s %(levelname)s: %(message)s",
+        force=True,  # the GUI may already have handlers installed by imports
     )

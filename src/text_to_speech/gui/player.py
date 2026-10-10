@@ -8,6 +8,7 @@ prefetch, spinner while synthesizing, graceful no-backend handling.
 import contextlib
 import os
 import tempfile
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
 from pathlib import Path
@@ -290,6 +291,17 @@ class Player(QObject):
     def shutdown(self) -> None:
         """Release the synthesis pool (called from the window's closeEvent)."""
         _executor.shutdown(wait=False)
+
+    def save_all(self, voice: str, progress_cb: Callable[[int], None] | None = None) -> bytes:
+        """Synthesize every paragraph and return the concatenated MP3.
+
+        The engine runs the whole file as one job, so the only progress it can
+        report is completion: ``progress_cb`` receives 100 when the job is done.
+        """
+        data = self._engine.save_all(voice)
+        if progress_cb is not None:
+            progress_cb(100)
+        return data
 
 
 _executor = ThreadPoolExecutor(max_workers=2)

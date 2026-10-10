@@ -5,9 +5,11 @@ and player controls switch to a single compact row. All breakpoints live in
 :data:`BREAKPOINTS` for easy tuning.
 """
 
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from pathlib import Path
 
-from PyQt5.QtCore import QSize
+from PyQt5.QtCore import QSize, pyqtSignal
 from PyQt5.QtWidgets import (
     QComboBox,
     QFileDialog,
@@ -26,18 +28,33 @@ from PyQt5.QtWidgets import (
 
 from . import player as _player_mod
 from . import strings as _strings
+from . import styles as _styles
+from . import theme as _theme_mod
 from .player import State
+
+_save_executor = ThreadPoolExecutor(max_workers=1)
+
+
+def _unwrap(future):
+    """Worker-thread hop: turn a failed job into its exception for the signal."""
+    try:
+        return future.result()
+    except Exception as e:
+        return e
 
 
 # --- Adaptive breakpoints (tune after it works) ---
+@dataclass(frozen=True)
 class BREAKPOINTS:
-    toolbar_icon_only_below = 560  # px width → hide toolbar text labels
-    controls_single_row_below = 520  # px width → single-row controls
-    controls_compact_below = 400  # px height → hide keyboard hint
+    toolbar_icon_only_below: int = 560  # px width → hide toolbar text labels
+    controls_single_row_below: int = 520  # px width → single-row controls
+    controls_compact_below: int = 400  # px height → hide keyboard hint
 
 
 class _MainWindow(QMainWindow):
     """``QMainWindow`` that re-runs the adaptive layout on every resize."""
+
+    save_done = pyqtSignal(object, str)
 
     def __init__(self):
         super().__init__()
@@ -55,8 +72,9 @@ class _MainWindow(QMainWindow):
 class Window:
     """QMainWindow with toolbar / reader / bottom-bar layout."""
 
-    def __init__(self, p: _player_mod.Player):
+    def __init__(self, p: _player_mod.Player, t: _theme_mod.Theme):
         self._player = p
+        self._theme = t
 
         self._main = None
         self._layout = None
@@ -110,6 +128,7 @@ class Window:
             layout.addWidget(widget)
 
         self._bind_keyboard()
+        self._main.save_done.connect(self._save_finished)
 
         if self._banner:
             self._banner.setVisible(False)
@@ -355,6 +374,7 @@ class Window:
             self._banner_label.setText(message)
         if self._banner:
             self._banner.setVisible(True)
+            self._banner.setStyleSheet(_styles.banner_style(self._theme, severity))
 
     def apply_adaptive_layout(self) -> None:
         """Collapse toolbar/controls based on current window size."""
@@ -413,7 +433,14 @@ class Window:
         )
         if not path:
             return ""
-        self._player.load_file(Path(path))
+        try:
+            self._player.load_file(Path(path))
+        except Exception as e:
+            self.show_banner(
+                _strings.t("msg.loadErrorDetail", message=str(e)),
+                severity="error",
+            )
+            return ""
         if self._file_name_label:
             self._file_name_label.setText(Path(path).name)
         self.hide_empty_state()
@@ -423,7 +450,7 @@ class Window:
         return path
 
     def save_mp3(self) -> None:
-        """Show save dialog, synthesize all paragraphs, write MP3."""
+        """Show save dialog, synthesize in the background, write the MP3."""
         if self._main is None or self._player.total == 0:
             return
         path, _ = QFileDialog.getSaveFileName(
@@ -436,20 +463,31 @@ class Window:
             return
         self._save_btn.setEnabled(False)
         self.set_spinner(True)
-        self.show_banner(
-            _strings.t("toolbar.saveBtn"),
-            severity="info",
-        )
+        self.show_banner(_strings.t("toolbar.saveBtn"), severity="info")
 
         voice = self._player.voice
+        future = _save_executor.submit(self._player.save_all, voice, self._set_save_progress)
+        future.add_done_callback(lambda f: self._main.save_done.emit(_unwrap(f), path))
 
-        mp3_data = self._player._engine.save_all(voice)
+    def _set_save_progress(self, pct: int) -> None:
+        """Show synthesis progress on the reading progress bar."""
+        if self._progress_bar:
+            self._progress_bar.setRange(0, 100)
+            self._progress_bar.setValue(pct)
 
-        with open(path, "wb") as f:
-            f.write(mp3_data)
-
+    def _save_finished(self, payload: object, path: str) -> None:
+        """Main-thread slot for ``save_done``: write the file or report the error."""
         self.set_spinner(False)
+        self.update_progress()
         self._save_btn.setEnabled(True)
+        if not isinstance(payload, bytes):
+            self.show_banner(_strings.t("msg.saveFailed", message=str(payload)), severity="error")
+            return
+        try:
+            Path(path).write_bytes(payload)
+        except OSError as e:
+            self.show_banner(_strings.t("msg.saveFailed", message=str(e)), severity="error")
+            return
         self.show_banner(f"Saved to {path}", severity="info")
 
     def dismiss_banner(self) -> None:
@@ -462,3 +500,4 @@ class Window:
     def release_player(self) -> None:
         """Release player resources when the window is closed."""
         self._player.shutdown()
+        _save_executor.shutdown(wait=False)
