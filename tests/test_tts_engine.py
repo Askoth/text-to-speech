@@ -5,6 +5,7 @@ Test per tts_engine.py: cache LRU, sintesi, prefetch, save_all, load_file.
 Le dipendenze esterne (edge-tts, piper, ffmpeg) sono sempre mockate.
 """
 
+import threading
 import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -359,7 +360,7 @@ class TestTTSEnginePrefetch:
             patch("src.tts_engine._executor") as mock_exec,
         ):
             # Esegui il task sincrono (elimina race condition da CI)
-            mock_exec.submit.side_effect = lambda fn: fn()
+            mock_exec.submit.side_effect = lambda fn, *args: fn(*args)
             # Act
             engine_con_testo.prefetch(0, "giuseppe")
 
@@ -539,3 +540,61 @@ class TestSynthesizeRaceCondition:
         # Act & Assert
         with pytest.raises(IndexError, match="fuori range"):
             engine._synthesize(0, "giuseppe")
+
+
+# ===========================================================================
+# Test — TTSEngine single-flight
+# ===========================================================================
+
+
+class TestSingleFlight:
+    """Test per la sintesi single-flight (un solo job per chiave per processo)."""
+
+    def test_get_audio_joins_inflight_job(self, engine):
+        """get_audio durante un prefetch in-flight deve attendere quel job:
+        una sola sintesi per la chiave."""
+        # Arrange
+        engine.load_text("Paragrafo A.\n\nParagrafo B.", "test.md")
+        invochi = []
+        gate = threading.Event()
+
+        def slow_synth(index, voice, style):
+            invochi.append(index)
+            gate.set()
+            time.sleep(1.0)
+            return f"mp3_{index}".encode()
+
+        with patch.object(engine, "_synthesize", side_effect=slow_synth):
+            # Avvia il prefetch in background per il paragrafo 1
+            engine.prefetch(1, "giuseppe")
+            # Attendi che il job sia dentro la sintesi
+            gate.wait(10)
+
+            # Act — la richiesta HTTP (simulata) arriva per il paragrafo 1
+            audio = engine.get_audio(1, "giuseppe")
+
+        # Assert — un solo job per la chiave, condiviso da entrambi i chiamanti
+        assert audio == b"mp3_1"
+        assert invochi == [1]
+        assert "giuseppe:neutro:1" in engine._cache
+
+    def test_second_prefetch_is_noop(self, engine):
+        """Un secondo prefetch per la stessa chiave non deve risottomettere,
+        e al completamento _inflight deve essere pulito."""
+        # Arrange
+        engine.load_text("Paragrafo A.\n\nParagrafo B.", "test.md")
+
+        def slow_synth(index, voice, style):
+            time.sleep(0.5)
+            return f"mp3_{index}".encode()
+
+        with patch.object(engine, "_synthesize", side_effect=slow_synth):
+            # Act — due prefetch consecutivi per la stessa chiave
+            engine.prefetch(0, "giuseppe")
+            engine.prefetch(0, "giuseppe")
+            # Attendi che il job completi
+            time.sleep(1.0)
+
+        # Assert — una sola sintesi, risultato in cache, nessun job residuo
+        assert engine._cache.get("giuseppe:neutro:0") == b"mp3_0"
+        assert engine._inflight == {}

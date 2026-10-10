@@ -21,6 +21,7 @@ def client():
     engine._paragraphs = []
     engine._filename = ""
     engine._cache.clear()
+    engine._inflight.clear()
 
     with app.test_client() as c:
         yield c

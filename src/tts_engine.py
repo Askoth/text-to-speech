@@ -9,7 +9,7 @@ import logging
 import subprocess
 import threading
 from collections import OrderedDict
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 
 from src.config import DEFAULT_STYLE, EDGE_VOICES, READING_STYLES, VOICE_JSON, VOICE_MODEL
@@ -71,6 +71,7 @@ class TTSEngine:
         self._filename: str = ""
         self._piper_voice = None
         self._piper_sample_rate: int = 0
+        self._inflight: dict[str, Future] = {}
 
     @property
     def paragraphs(self) -> list[str]:
@@ -103,7 +104,11 @@ class TTSEngine:
         return paragraphs
 
     def get_audio(self, index: int, voice: str, style: str = DEFAULT_STYLE) -> bytes:
-        """Restituisce MP3 bytes per il paragrafo. Usa cache se disponibile."""
+        """Restituisce MP3 bytes per il paragrafo. Usa cache se disponibile.
+
+        Con single-flight: su cache miss partecipa (o avvia) il job in-flight
+        per la chiave e ne attende il risultato, evitando sintesi duplicati.
+        """
         if index < 0 or index >= len(self._paragraphs):
             raise IndexError(f"Paragrafo {index} fuori range")
 
@@ -113,8 +118,12 @@ class TTSEngine:
                 self._cache.move_to_end(cache_key)
                 return self._cache[cache_key]
 
-        mp3_bytes = self._synthesize(index, voice, style)
-        self._put_cache(cache_key, mp3_bytes)
+        joining = cache_key in self._inflight
+        future = self._job_or_existing(cache_key, index, voice, style)
+        if joining:
+            log.info("Paragraph %d still processing (voice %s); reusing job", index, voice)
+
+        mp3_bytes = future.result()
 
         # Prefetch prossimo paragrafo in background
         if index + 1 < len(self._paragraphs):
@@ -123,7 +132,11 @@ class TTSEngine:
         return mp3_bytes
 
     def prefetch(self, index: int, voice: str, style: str = DEFAULT_STYLE):
-        """Lancia sintesi del paragrafo in background (thread pool)."""
+        """Assicura un job di sintesi in background per il paragrafo (idempotente).
+
+        Al massimo un job per chiave per processo: se un job è già in-flight
+        per la stessa chiave, non si risottomette.
+        """
         if index < 0 or index >= len(self._paragraphs):
             return
         cache_key = f"{voice}:{style}:{index}"
@@ -131,14 +144,7 @@ class TTSEngine:
             if cache_key in self._cache:
                 return
 
-        def _do_prefetch():
-            try:
-                mp3 = self._synthesize(index, voice, style)
-                self._put_cache(cache_key, mp3)
-            except Exception:
-                log.warning("Prefetch paragrafo %d fallito", index, exc_info=True)
-
-        _executor.submit(_do_prefetch)
+        self._job_or_existing(cache_key, index, voice, style)
 
     def save_all(self, voice: str, style: str = DEFAULT_STYLE) -> bytes:
         """Sintetizza tutti i paragrafi e restituisce MP3 concatenato.
@@ -188,6 +194,31 @@ class TTSEngine:
             self._piper_voice = PiperVoice.load(str(VOICE_MODEL), config_path=str(VOICE_JSON))
             self._piper_sample_rate = self._piper_voice.config.sample_rate
 
+    def _job_or_existing(self, cache_key: str, index: int, voice: str, style: str):
+        """Restituisce il job in-flight per la chiave, avviandolo se assente."""
+        with self._lock:
+            job = self._inflight.get(cache_key)
+        if job is None:
+            job = _executor.submit(self._synth_job, cache_key, index, voice, style)
+            with self._lock:
+                # Inserimento double-checked: se un thread concorrente ha vinto,
+                # tiene il suo job e il perdente lo condivide.
+                job = self._inflight.setdefault(cache_key, job)
+        return job
+
+    def _synth_job(self, cache_key: str, index: int, voice: str, style: str) -> bytes:
+        """Corpo del job di sintesi: sintetizza, mette in cache, poi ripulisce."""
+        try:
+            mp3 = self._synthesize(index, voice, style)
+            self._put_cache(cache_key, mp3)
+            return mp3
+        except Exception:
+            log.warning("Synthesis failed for paragraph %d", index, exc_info=True)
+            raise
+        finally:
+            with self._lock:
+                self._inflight.pop(cache_key, None)
+
     def _put_cache(self, key: str, data: bytes):
         with self._lock:
             self._cache[key] = data
@@ -197,3 +228,4 @@ class TTSEngine:
     def _clear_cache(self):
         with self._lock:
             self._cache.clear()
+            self._inflight.clear()
