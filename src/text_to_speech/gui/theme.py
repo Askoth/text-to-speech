@@ -4,8 +4,8 @@ The live file uses Noctalia's standard Material color tokens, so a Noctalia
 template can render it 1:1 from the active palette (one
 ``{{ colors.<token>.default.hex }}`` per role). Beyond that, this module does
 no color derivation — only the fixed state opacities in :data:`STATE`, which
-``styles.py`` applies for the derived UI states (dim text, accent glow,
-progress track, accent hover/pressed tints).
+``styles.py`` applies for the derived UI states (dim text, progress track,
+accent hover/pressed tints).
 """
 
 from dataclasses import dataclass
@@ -20,7 +20,6 @@ class State:
     """Fixed state-layer opacities applied by ``styles.py`` over palette roles."""
 
     text_dim: float = 0.40  # on_surface → hint / counter text
-    glow: float = 0.15  # primary → accent glow (active language button)
     progress_track: float = 0.07  # on_surface → progress bar track
     accent_hover: float = 0.15  # on_primary over primary → play button hover
     accent_pressed: float = 0.30  # on_primary over primary → play button pressed

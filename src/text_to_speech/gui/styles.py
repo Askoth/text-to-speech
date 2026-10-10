@@ -179,7 +179,6 @@ def build_stylesheet(t: theme.Theme) -> str:
     s = theme.STATE
     colors: dict[str, QColor] = dict(t.colors)
     colors["text_dim"] = _alpha(colors["on_surface"], s.text_dim)
-    colors["glow"] = _alpha(colors["primary"], s.glow)
     colors["track"] = _alpha(colors["on_surface"], s.progress_track)
     colors["accent_hover"] = _overlay(colors["primary"], colors["on_primary"], s.accent_hover)
     colors["accent_pressed"] = _overlay(colors["primary"], colors["on_primary"], s.accent_pressed)

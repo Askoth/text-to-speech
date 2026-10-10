@@ -39,7 +39,6 @@ class TestTheme:
     def test_state_defaults(self):
         s = theme.STATE
         assert s.text_dim == 0.40
-        assert s.glow == 0.15
         assert s.progress_track == 0.07
         assert 0 < s.accent_hover < s.accent_pressed < 1
 
