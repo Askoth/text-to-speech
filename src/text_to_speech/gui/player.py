@@ -31,10 +31,12 @@ class Player(QObject):
 
     ``audio_ready`` marshals synthesized bytes from the synthesis worker back to
     the main thread: QMediaPlayer is not thread-safe, so every Qt call happens
-    in the connected slot, never in a worker.
+    in the connected slot, never in a worker. ``synthesis_failed`` is emitted
+    when a synthesis job raises, so the window can surface the error.
     """
 
     audio_ready = pyqtSignal(object, int)
+    synthesis_failed = pyqtSignal(str)
 
     def __init__(self, engine: TTSEngine):
         super().__init__()
@@ -55,6 +57,7 @@ class Player(QObject):
         self._spinner_active: bool = False
 
         self.audio_ready.connect(self._on_audio_ready)
+        self.synthesis_failed.connect(self._on_synthesis_failure)
 
     @property
     def state(self) -> State:
@@ -195,21 +198,22 @@ class Player(QObject):
         """Runs on the worker thread: only extract the payload and emit it."""
         try:
             payload = future.result()
-        except Exception:
-            payload = None
+        except Exception as e:
+            self.synthesis_failed.emit(str(e))
+            return
         self.audio_ready.emit(payload, idx)
 
-    def _on_audio_ready(self, mp3_bytes: object, idx: int) -> None:
+    def _on_audio_ready(self, mp3_bytes: bytes, idx: int) -> None:
         """Main-thread slot for :attr:`audio_ready` — feed audio to QMediaPlayer."""
         self._spinner_active = False
-        if not isinstance(mp3_bytes, bytes):
-            self._state = State.IDLE
-            return
-
         if self._state != State.LOADING:
             return
-
         self._write_and_play(mp3_bytes, idx)
+
+    def _on_synthesis_failure(self, message: str) -> None:
+        """Main-thread slot for :attr:`synthesis_failed` — stop loading, no audio."""
+        self._spinner_active = False
+        self._state = State.IDLE
 
     def _write_and_play(self, mp3_bytes: bytes, idx: int) -> None:
         """Write MP3 to temp file and start playback."""

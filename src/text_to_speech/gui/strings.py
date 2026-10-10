@@ -71,6 +71,7 @@ TRANSLATIONS = {
         "msg.synthesisErrorDetail": "Errore sintesi: {message} Riprova o cambia voce.",
         "msg.playbackError": "Errore di riproduzione audio. Riprova o cambia voce.",
         "msg.saveFailed": "Salvataggio fallito: {message}",
+        "msg.saved": "Salvato in {path}",
     },
     "en": {
         # Toolbar
@@ -130,6 +131,7 @@ TRANSLATIONS = {
         "msg.synthesisErrorDetail": "Synthesis error: {message} Try again or change voice.",
         "msg.playbackError": "Audio playback error. Try again or change voice.",
         "msg.saveFailed": "Save failed: {message}",
+        "msg.saved": "Saved to {path}",
     },
 }
 

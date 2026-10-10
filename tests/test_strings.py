@@ -75,6 +75,7 @@ EXPECTED_KEYS = frozenset(
         "msg.synthesisErrorDetail",
         "msg.playbackError",
         "msg.saveFailed",
+        "msg.saved",
     }
 )
 
@@ -85,8 +86,8 @@ class TestInventory:
         assert set(strings.TRANSLATIONS["it"]) == EXPECTED_KEYS
 
     def test_key_count(self):
-        assert len(strings.TRANSLATIONS["en"]) == 49
-        assert len(strings.TRANSLATIONS["it"]) == 49
+        assert len(strings.TRANSLATIONS["en"]) == 50
+        assert len(strings.TRANSLATIONS["it"]) == 50
 
     def test_no_style_keys(self):
         for lang in strings.TRANSLATIONS.values():
@@ -124,17 +125,20 @@ class TestDefaultAndLookup:
         assert strings.t("progress.counter", current=3, total=10) == "Paragraph 3 / 10"
         assert strings.t("progress.valueText", current=3, total=10) == "Paragraph 3 of 10"
         assert strings.t("msg.saveFailed", message="boom") == "Save failed: boom"
+        assert strings.t("msg.saved", path="a.mp3") == "Saved to a.mp3"
 
     def test_interpolation_it(self):
         strings.set_lang("it")
         assert strings.t("progress.counter", current=3, total=10) == "Paragrafo 3 / 10"
         assert strings.t("progress.valueText", current=3, total=10) == "Paragrafo 3 di 10"
         assert strings.t("msg.loadErrorDetail", message="oops") == "Errore nel caricamento: oops"
+        assert strings.t("msg.saved", path="a.mp3") == "Salvato in a.mp3"
 
     def test_unfilled_placeholder_kept_literal(self):
         strings.set_lang("en")
         assert strings.t("progress.counter") == "Paragraph {current} / {total}"
         assert strings.t("msg.saveFailed") == "Save failed: {message}"
+        assert strings.t("msg.saved") == "Saved to {path}"
 
 
 class TestSetLang:

@@ -129,6 +129,7 @@ class Window:
 
         self._bind_keyboard()
         self._main.save_done.connect(self._save_finished)
+        self._player.synthesis_failed.connect(self._on_synthesis_failed)
 
         if self._banner:
             self._banner.setVisible(False)
@@ -463,7 +464,7 @@ class Window:
             return
         self._save_btn.setEnabled(False)
         self.set_spinner(True)
-        self.show_banner(_strings.t("toolbar.saveBtn"), severity="info")
+        self.show_banner(_strings.t("toolbar.loading"), severity="info")
 
         voice = self._player.voice
         future = _save_executor.submit(self._player.save_all, voice, self._set_save_progress)
@@ -488,7 +489,11 @@ class Window:
         except OSError as e:
             self.show_banner(_strings.t("msg.saveFailed", message=str(e)), severity="error")
             return
-        self.show_banner(f"Saved to {path}", severity="info")
+        self.show_banner(_strings.t("msg.saved", path=path), severity="info")
+
+    def _on_synthesis_failed(self, message: str) -> None:
+        """Synthesis job raised — show an error banner (player already reset)."""
+        self.show_banner(_strings.t("msg.synthesisErrorDetail", message=message), severity="error")
 
     def dismiss_banner(self) -> None:
         """Hide the status banner."""
