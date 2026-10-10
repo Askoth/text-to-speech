@@ -262,7 +262,7 @@ class Player:
     def start_enabled(self) -> bool:
         return self._total > 0 and self._current_idx > 0
 
-    def stop_enabled(self) -> None:
+    def stop_enabled(self) -> bool:
         return self._total > 0 and self._state != State.IDLE
 
     def play_enabled(self) -> bool:

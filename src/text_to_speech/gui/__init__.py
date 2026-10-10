@@ -17,16 +17,19 @@ from src.tts_engine import TTSEngine
 
 SOCKET_NAME = "\0text-to-speech-gui"
 
+_INSTANCE_LOCK: socket.socket | None = None
 
-def _single_instance_guard() -> socket.socket:
+
+def _single_instance_guard() -> None:
     """Bind an abstract Unix-domain socket; if already bound, exit with message."""
+    global _INSTANCE_LOCK
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
         sock.bind(SOCKET_NAME)
     except OSError:
         print("only one instance allowed", file=sys.stderr)
         raise SystemExit(1) from None
-    return sock
+    _INSTANCE_LOCK = sock  # keep alive for the whole process lifetime
 
 
 def main(*, verbose: bool = False) -> int:

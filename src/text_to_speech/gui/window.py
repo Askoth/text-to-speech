@@ -5,23 +5,28 @@ and player controls switch to a single compact row. All breakpoints live in
 :data:`BREAKPOINTS` for easy tuning.
 """
 
-from enum import Enum
 from pathlib import Path
 
+from PyQt5.QtCore import QSize
 from PyQt5.QtWidgets import (
     QComboBox,
     QFileDialog,
     QFrame,
+    QHBoxLayout,
     QLabel,
+    QMainWindow,
     QProgressBar,
     QPushButton,
     QScrollArea,
     QShortcut,
     QSizePolicy,
+    QVBoxLayout,
+    QWidget,
 )
 
 from . import player as _player_mod
 from . import strings as _strings
+from .player import State
 
 
 # --- Adaptive breakpoints (tune after it works) ---
@@ -31,11 +36,16 @@ class BREAKPOINTS:
     controls_compact_below = 400  # px height → hide keyboard hint
 
 
-class State(Enum):
-    IDLE = "idle"
-    LOADING = "loading"
-    PLAYING = "playing"
-    PAUSED = "paused"
+class _MainWindow(QMainWindow):
+    """``QMainWindow`` that re-runs the adaptive layout on every resize."""
+
+    def __init__(self):
+        super().__init__()
+        self._window = None  # Window instance, wired in Window.build()
+
+    def resizeEvent(self, _event) -> None:
+        if self._window is not None:
+            self._window.apply_adaptive_layout()
 
 
 class Window:
@@ -45,6 +55,8 @@ class Window:
         self._player = p
 
         self._main = None
+        self._layout = None
+        self._reader_content = None
         self._top_bar = None
         self._bottom_bar = None
         self._reader_area = None
@@ -64,23 +76,42 @@ class Window:
         self._save_btn = None
         self._banner = None
         self._banner_label = None
+        self._banner_close = None
         self._kbd_hint = None
+        self._empty_title = None
+        self._empty_sub = None
+        self._btn_max: dict[str, QSize] = {}
 
         self._shortcuts: list[QShortcut] = []
 
     def build(self) -> None:
-        """Construct the full widget tree."""
-        from PyQt5.QtWidgets import QMainWindow
-
-        w = QMainWindow()
+        """Construct the full widget tree and show the window."""
+        w = _MainWindow()
         w.setMinimumSize(480, 360)
         self._main = w
+        w._window = self
 
+        central = QWidget()
+        central.setObjectName("CentralArea")
+        w.setCentralWidget(central)
+        layout = QVBoxLayout(central)
+        self._layout = layout
+
+        self._build_banner()
         self._build_top_bar()
         self._build_reader_area()
         self._build_bottom_bar()
-        self._build_banner()
+
+        for widget in (self._banner, self._top_bar, self._reader_area, self._bottom_bar):
+            layout.addWidget(widget)
+
         self._bind_keyboard()
+
+        if self._banner:
+            self._banner.setVisible(False)
+        self.show_empty_state()
+        self.apply_adaptive_layout()
+        w.show()
 
     def _build_top_bar(self) -> None:
         bar = QFrame()
@@ -89,28 +120,38 @@ class Window:
 
         self._file_name_label = QLabel("")
         self._file_name_label.setObjectName("FileNameLabel")
+        self._file_name_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
         self._voice_combo = QComboBox()
         self._voice_combo.setObjectName("VoiceCombo")
 
-        self._save_btn = QPushButton()
+        self._save_btn = QPushButton(_strings.t("toolbar.saveBtn"))
         self._save_btn.setObjectName("SaveButton")
+        self._save_btn.setToolTip(_strings.t("toolbar.saveAria"))
+
+        row = QHBoxLayout(bar)
+        row.addWidget(self._file_name_label)
+        row.addWidget(self._voice_combo)
+        row.addWidget(self._save_btn)
 
         self._top_bar = bar
 
     def _build_reader_area(self) -> None:
         scroll = QScrollArea()
         scroll.setObjectName("ReaderScroll")
-        scroll.setVerticalScrollBarPolicy(1)  # Never
-        scroll.setHorizontalScrollBarPolicy(1)  # Never
+        scroll.setVerticalScrollBarPolicy(1)  # 1 = ScrollBarOff
+        scroll.setHorizontalScrollBarPolicy(1)  # 1 = ScrollBarOff
 
         card = QFrame()
         card.setObjectName("ReaderCard")
+        card_layout = QVBoxLayout(card)
 
         self._paragraph_label = QLabel("")
         self._paragraph_label.setObjectName("ParagraphText")
         self._paragraph_label.setWordWrap(True)
         self._paragraph_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+        card_layout.addWidget(self._paragraph_label)
 
         self._empty_state = QFrame()
         self._empty_state.setObjectName("EmptyState")
@@ -120,8 +161,21 @@ class Window:
         empty_sub = QLabel(_strings.t("empty.formats"))
         empty_sub.setObjectName("EmptyStateFormats")
 
+        empty_layout = QVBoxLayout(self._empty_state)
+        empty_layout.addWidget(empty_title)
+        empty_layout.addWidget(empty_sub)
+
+        content = QWidget()
+        content.setObjectName("ReaderContent")
+        inner = QVBoxLayout(content)
+        inner.addWidget(card)
+        inner.addWidget(self._empty_state)
+        scroll.setWidget(content)
+        scroll.setWidgetResizable(True)
+
         self._reader_card = card
         self._reader_area = scroll
+        self._reader_content = content
         self._empty_title = empty_title
         self._empty_sub = empty_sub
 
@@ -136,18 +190,26 @@ class Window:
         self._counter_label = QLabel(_strings.t("progress.counterEmpty"))
         self._counter_label.setObjectName("CounterLabel")
 
-        self._btn_start = QPushButton()
-        self._btn_start.setObjectName("StartButton")
-        self._btn_prev = QPushButton()
-        self._btn_prev.setObjectName("PrevButton")
-        self._btn_play = QPushButton()
-        self._btn_play.setObjectName("PlayButton")
-        self._btn_stop = QPushButton()
-        self._btn_stop.setObjectName("StopButton")
-        self._btn_next = QPushButton()
-        self._btn_next.setObjectName("NextButton")
-        self._btn_repeat = QPushButton()
-        self._btn_repeat.setObjectName("RepeatButton")
+        for attr, name, aria in (
+            ("_btn_start", "StartButton", "player.startTitle"),
+            ("_btn_prev", "PrevButton", "player.prevTitle"),
+            ("_btn_play", "PlayButton", "player.playTitle"),
+            ("_btn_stop", "StopButton", "player.stopTitle"),
+            ("_btn_next", "NextButton", "player.nextTitle"),
+            ("_btn_repeat", "RepeatButton", "player.repeatTitle"),
+        ):
+            btn = QPushButton()
+            btn.setObjectName(name)
+            btn.setToolTip(_strings.t(aria))
+            self._btn_max[name] = btn.maximumSize()
+            setattr(self, attr, btn)
+
+        self._btn_play.setText(_strings.t("label.playPause"))
+        self._btn_start.setText(_strings.t("label.start"))
+        self._btn_prev.setText(_strings.t("label.prev"))
+        self._btn_stop.setText(_strings.t("label.stop"))
+        self._btn_next.setText(_strings.t("label.next"))
+        self._btn_repeat.setText(_strings.t("label.repeat"))
 
         self._kbd_hint = QLabel(
             f"{_strings.t('kbd.space')} {_strings.t('kbd.playPause')}  "
@@ -157,13 +219,40 @@ class Window:
         )
         self._kbd_hint.setObjectName("KeyboardHint")
 
+        row = QHBoxLayout(bar)
+        row.addWidget(self._progress_bar)
+        row.addWidget(self._counter_label)
+        for btn in self._control_buttons():
+            row.addWidget(btn)
+        row.addWidget(self._kbd_hint)
+
         self._bottom_bar = bar
+
+    def _control_buttons(self) -> tuple[QPushButton, ...]:
+        """The six player controls, in display order."""
+        return (
+            self._btn_start,
+            self._btn_prev,
+            self._btn_play,
+            self._btn_stop,
+            self._btn_next,
+            self._btn_repeat,
+        )
 
     def _build_banner(self) -> None:
         self._banner = QFrame()
         self._banner.setObjectName("StatusBanner")
         self._banner_label = QLabel("")
         self._banner_label.setObjectName("BannerLabel")
+        self._banner_close = QPushButton()
+        self._banner_close.setObjectName("BannerCloseButton")
+        self._banner_close.setText("\u2715")
+        self._banner_close.setToolTip(_strings.t("error.closeAria"))
+        self._banner_close.clicked.connect(self.dismiss_banner)
+
+        row = QHBoxLayout(self._banner)
+        row.addWidget(self._banner_label)
+        row.addWidget(self._banner_close)
 
     def _bind_keyboard(self) -> None:
         if self._main is None:
@@ -252,10 +341,9 @@ class Window:
     def set_spinner(self, active: bool) -> None:
         """Toggle spinner indicator on the play button."""
         if self._btn_play:
-            if active:
-                self._btn_play.setText(_strings.t("player.loadingAria"))
-            else:
-                self._btn_play.setText("")
+            self._btn_play.setText(
+                _strings.t("player.loadingAria") if active else _strings.t("label.playPause")
+            )
 
     def show_banner(self, message: str, severity: str = "error") -> None:
         """Display the top status banner with a message."""
@@ -280,17 +368,34 @@ class Window:
 
         if icon_only:
             self._collapse_toolbar()
+        else:
+            self._expand_toolbar()
         if single_row:
             self._collapse_controls()
+        else:
+            self._expand_controls()
 
     def _collapse_toolbar(self) -> None:
         """Hide text labels in toolbar (icon-only mode)."""
         if self._file_name_label:
             self._file_name_label.setVisible(False)
 
+    def _expand_toolbar(self) -> None:
+        """Restore toolbar text labels."""
+        if self._file_name_label:
+            self._file_name_label.setVisible(True)
+
     def _collapse_controls(self) -> None:
-        """Switch player controls to compact single-row layout."""
-        pass
+        """Cap player controls so all six fit one row."""
+        for btn in self._control_buttons():
+            btn.setMaximumSize(QSize(44, 44))
+        if self._btn_play:
+            self._btn_play.setMaximumSize(QSize(56, 56))
+
+    def _expand_controls(self) -> None:
+        """Restore the default (unbounded) control sizes."""
+        for btn in self._control_buttons():
+            btn.setMaximumSize(self._btn_max[btn.objectName()])
 
     def open_file(self) -> str:
         """Show file dialog, load the chosen file, reset player. Returns path or ''."""
