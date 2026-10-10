@@ -253,6 +253,13 @@ class Window:
             else:
                 self._btn_play.setText("")
 
+    def show_banner(self, message: str, severity: str = "error") -> None:
+        """Display the top status banner with a message."""
+        if self._banner_label:
+            self._banner_label.setText(message)
+        if self._banner:
+            self._banner.setVisible(True)
+
     def apply_adaptive_layout(self) -> None:
         """Collapse toolbar/controls based on current window size."""
         if self._main is None:
