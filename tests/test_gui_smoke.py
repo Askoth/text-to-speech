@@ -89,7 +89,7 @@ class TestGuiSmoke:
 
         text = tmp_path / "sample.txt"
         text.write_text("First paragraph.\n\nSecond paragraph.\n")
-        p.load_file(text)
+        p.load(text)
         p.shutdown()
 
         time.sleep(0.2)

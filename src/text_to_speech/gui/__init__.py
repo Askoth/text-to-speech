@@ -52,33 +52,19 @@ def main(*, verbose: bool = False) -> int:
 
     engine = TTSEngine()
     p = _player_mod.Player(engine)
-    w = _window_mod.Window(p, theme_obj)
+    voices = cfg["voices"]
+    w = _window_mod.Window(p, theme_obj, voices)
     w.build()
 
     if config_warnings:
         w.show_empty_state()
         w.show_banner("\n".join(config_warnings), severity="warning")
 
-    voices = cfg["voices"]
-    if w._voice_combo is not None:
-        for v in voices:
-            label = v["name"].capitalize()
-            if v.get("multilingual"):
-                label += " (multi)"
-            w._voice_combo.addItem(label)
-        if voices:
-            w._voice_combo.setCurrentIndex(0)
-
     last_voice = cfg.get("last_voice", "")
-    if last_voice and w._voice_combo:
-        for i, v in enumerate(voices):
-            if v["name"] == last_voice:
-                w._voice_combo.setCurrentIndex(i)
-                p.set_voice(last_voice)
-                break
-        else:
-            if voices:
-                p.set_voice(voices[0]["name"])
+    match = next((i for i, v in enumerate(voices) if v["name"] == last_voice), None)
+    if match is not None:
+        w._voice_combo.setCurrentIndex(match)
+        p.set_voice(voices[match]["name"])
     elif voices:
         p.set_voice(voices[0]["name"])
 

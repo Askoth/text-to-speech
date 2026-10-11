@@ -72,9 +72,11 @@ class _MainWindow(QMainWindow):
 class Window:
     """QMainWindow with toolbar / reader / bottom-bar layout."""
 
-    def __init__(self, p: _player_mod.Player, t: _theme_mod.Theme):
+    def __init__(self, p: _player_mod.Player, t: _theme_mod.Theme,
+                 voices: list[dict] | None = None):
         self._player = p
         self._theme = t
+        self._voices = voices or []
 
         self._main = None
         self._layout = None
@@ -103,6 +105,7 @@ class Window:
         self._empty_title = None
         self._empty_sub = None
         self._btn_max: dict[str, QSize] = {}
+        self._saving = False
 
         self._shortcuts: list[QShortcut] = []
 
@@ -130,11 +133,25 @@ class Window:
         self._bind_keyboard()
         self._main.save_done.connect(self._save_finished)
         self._player.synthesis_failed.connect(self._on_synthesis_failed)
+        self._player.state_changed.connect(self._on_player_update)
+        self._player.playback_failed.connect(self._on_playback_failed)
+        self._player.file_ready.connect(self._on_file_ready)
+        self._player.file_failed.connect(self._on_file_failed)
+
+        for v in self._voices:
+            label = v["name"].capitalize()
+            if v.get("multilingual"):
+                label += " (multi)"
+            self._voice_combo.addItem(label)
+        self._voice_combo.currentIndexChanged.connect(self._on_voice_changed)
+
+        w.setWindowTitle("TTS Reader")
 
         if self._banner:
             self._banner.setVisible(False)
         self.show_empty_state()
         self.apply_adaptive_layout()
+        self._on_player_update()
         w.show()
 
     def _build_top_bar(self) -> None:
@@ -317,7 +334,7 @@ class Window:
         p = self._player
         if p.total == 0:
             if self._progress_bar:
-                self._progress_bar.setRange(0, 0)
+                self._progress_bar.setRange(0, 100)
                 self._progress_bar.setValue(0)
             if self._counter_label:
                 self._counter_label.setText(_strings.t("progress.counterEmpty"))
@@ -434,20 +451,7 @@ class Window:
         )
         if not path:
             return ""
-        try:
-            self._player.load_file(Path(path))
-        except Exception as e:
-            self.show_banner(
-                _strings.t("msg.loadErrorDetail", message=str(e)),
-                severity="error",
-            )
-            return ""
-        if self._file_name_label:
-            self._file_name_label.setText(Path(path).name)
-        self.hide_empty_state()
-        self.update_progress()
-        self.sync_controls()
-        self._player.prefetch_first()
+        self._player.load(Path(path))
         return path
 
     def save_mp3(self) -> None:
@@ -462,6 +466,7 @@ class Window:
         )
         if not path:
             return
+        self._saving = True
         self._save_btn.setEnabled(False)
         self.set_spinner(True)
         self.show_banner(_strings.t("toolbar.loading"), severity="info")
@@ -478,9 +483,10 @@ class Window:
 
     def _save_finished(self, payload: object, path: str) -> None:
         """Main-thread slot for ``save_done``: write the file or report the error."""
+        self._saving = False
         self.set_spinner(False)
         self.update_progress()
-        self._save_btn.setEnabled(True)
+        self._save_btn.setEnabled(self._player.total > 0)
         if not isinstance(payload, bytes):
             self.show_banner(_strings.t("msg.saveFailed", message=str(payload)), severity="error")
             return
@@ -494,6 +500,35 @@ class Window:
     def _on_synthesis_failed(self, message: str) -> None:
         """Synthesis job raised — show an error banner (player already reset)."""
         self.show_banner(_strings.t("msg.synthesisErrorDetail", message=message), severity="error")
+
+    def _on_player_update(self) -> None:
+        """Refresh every player-derived widget after a state transition."""
+        p = self._player
+        if p.total > 0:
+            self.update_paragraph(p.paragraphs[p.current_idx])
+        self.update_progress()
+        self.sync_controls()
+        self.set_spinner(p.spinner_active)
+        self._save_btn.setEnabled(p.total > 0 and not self._saving)
+
+    def _on_playback_failed(self) -> None:
+        """QMediaPlayer backend error — surface the playback-error banner."""
+        self.show_banner(_strings.t("msg.playbackError"), severity="error")
+
+    def _on_voice_changed(self, index: int) -> None:
+        """Apply the selected voice to the player."""
+        if 0 <= index < len(self._voices):
+            self._player.set_voice(self._voices[index]["name"])
+
+    def _on_file_ready(self, _paragraphs: list[str], _path: Path) -> None:
+        """File parsed in the background — name the file, show the reader."""
+        if self._file_name_label:
+            self._file_name_label.setText(self._player.filename)
+        self.hide_empty_state()
+
+    def _on_file_failed(self, message: str) -> None:
+        """File parse failed — error banner (player already reset to empty)."""
+        self.show_banner(_strings.t("msg.loadErrorDetail", message=message), severity="error")
 
     def dismiss_banner(self) -> None:
         """Hide the status banner."""

@@ -37,12 +37,18 @@ class Player(QObject):
 
     audio_ready = pyqtSignal(object, int)
     synthesis_failed = pyqtSignal(str)
+    state_changed = pyqtSignal()
+    playback_failed = pyqtSignal()
+    file_ready = pyqtSignal(object, object)
+    file_failed = pyqtSignal(str)
 
     def __init__(self, engine: TTSEngine):
         super().__init__()
         self._engine = engine
+        self._executor = ThreadPoolExecutor(max_workers=2)
         self._media = QMediaPlayer()
         self._media.mediaStatusChanged.connect(self._on_media_status)
+        self._media.error.connect(self._on_playback_error)
 
         self._state: State = State.IDLE
         self._current_idx: int = 0
@@ -53,11 +59,14 @@ class Player(QObject):
 
         self._temp_file: str | None = None
         self._prefetch_idx: int = -1
+        self._load_seq: int = 0
 
         self._spinner_active: bool = False
 
         self.audio_ready.connect(self._on_audio_ready)
         self.synthesis_failed.connect(self._on_synthesis_failure)
+        self.file_ready.connect(self._apply_file_parsed)
+        self.file_failed.connect(self._on_file_load_failed)
 
     @property
     def state(self) -> State:
@@ -91,20 +100,24 @@ class Player(QObject):
         self._voice = voice
         self._clear_prefetch()
 
-    def load_file(self, path: Path) -> list[str]:
-        """Load a file, populate paragraphs, reset to idle."""
-        self._paragraphs = self._engine.load_file(path)
-        self._total = len(self._paragraphs)
-        self._filename = path.name
-        self._current_idx = 0
-        self._state = State.IDLE
-        self._clear_prefetch()
-        self._media.stop()
-        self._cleanup_temp()
-        return self._paragraphs
+    def load(self, path: Path) -> None:
+        """Start parsing *path* off the main thread.
 
-    def prefetch_first(self) -> None:
-        """Start background synthesis of paragraph 0 (called after load_file)."""
+        ``state`` goes to LOADING immediately; ``file_ready`` or
+        ``file_failed`` fires on the main thread once the parse finishes.
+        """
+        self._load_seq += 1
+        seq = self._load_seq
+        self._state = State.LOADING
+        self._spinner_active = True
+        self._current_idx = 0
+        self._clear_prefetch()
+        self.state_changed.emit()
+        future = self._executor.submit(self._engine.load_file, path)
+        future.add_done_callback(lambda f, s=seq: self._on_file_parsed(f, s, path))
+
+    def _prefetch_first(self) -> None:
+        """Start background synthesis of paragraph 0 (after a successful load)."""
         if self._total > 0 and self._voice:
             self._engine.prefetch(0, self._voice)
             self._prefetch_idx = 0
@@ -118,6 +131,7 @@ class Player(QObject):
         if self._state == State.PAUSED and self._temp_file:
             self._media.play()
             self._state = State.PLAYING
+            self.state_changed.emit()
             return
         self._load_and_play(self._current_idx)
 
@@ -126,6 +140,7 @@ class Player(QObject):
             return
         self._media.pause()
         self._state = State.PAUSED
+        self.state_changed.emit()
 
     def stop(self) -> None:
         """Stop playback and reset to first paragraph."""
@@ -134,6 +149,7 @@ class Player(QObject):
         self._current_idx = 0
         self._state = State.IDLE
         self._clear_prefetch()
+        self.state_changed.emit()
 
     def next(self) -> None:
         if self._total == 0:
@@ -148,6 +164,7 @@ class Player(QObject):
             self._load_and_play(self._current_idx)
         else:
             self._state = State.IDLE
+            self.state_changed.emit()
 
     def prev(self) -> None:
         if self._total == 0:
@@ -162,6 +179,7 @@ class Player(QObject):
             self._load_and_play(self._current_idx)
         else:
             self._state = State.IDLE
+            self.state_changed.emit()
 
     def repeat(self) -> None:
         """Replay current paragraph from the beginning."""
@@ -184,14 +202,16 @@ class Player(QObject):
             self._load_and_play(self._current_idx)
         else:
             self._state = State.IDLE
+            self.state_changed.emit()
 
     def _load_and_play(self, idx: int) -> None:
         """Synthesize (if needed) and play paragraph at idx."""
         self._state = State.LOADING
         self._spinner_active = True
+        self.state_changed.emit()
 
         voice = self._voice
-        future = _executor.submit(self._engine.get_audio, idx, voice)
+        future = self._executor.submit(self._engine.get_audio, idx, voice)
         future.add_done_callback(lambda f: self._hand_off(f, idx))
 
     def _hand_off(self, future, idx: int) -> None:
@@ -207,6 +227,7 @@ class Player(QObject):
         """Main-thread slot for :attr:`audio_ready` — feed audio to QMediaPlayer."""
         self._spinner_active = False
         if self._state != State.LOADING:
+            self.state_changed.emit()
             return
         self._write_and_play(mp3_bytes, idx)
 
@@ -214,6 +235,14 @@ class Player(QObject):
         """Main-thread slot for :attr:`synthesis_failed` — stop loading, no audio."""
         self._spinner_active = False
         self._state = State.IDLE
+        self.state_changed.emit()
+
+    def _on_playback_error(self, _error: int) -> None:
+        """QMediaPlayer backend error — stop, surface to the window."""
+        self._spinner_active = False
+        self._state = State.IDLE
+        self.playback_failed.emit()
+        self.state_changed.emit()
 
     def _write_and_play(self, mp3_bytes: bytes, idx: int) -> None:
         """Write MP3 to temp file and start playback."""
@@ -228,6 +257,7 @@ class Player(QObject):
         self._media.setMedia(QMediaContent(QUrl(f"file://{path}")))
         self._media.play()
         self._state = State.PLAYING
+        self.state_changed.emit()
 
         self._prefetch_next(idx)
 
@@ -250,16 +280,46 @@ class Player(QObject):
                 os.unlink(self._temp_file)
             self._temp_file = None
 
+    def _on_file_parsed(self, future, seq: int, path: Path) -> None:
+        """Worker-thread done callback: marshal the parse result to the main thread."""
+        if seq != self._load_seq:
+            return  # superseded by a newer load
+        try:
+            paragraphs = future.result()
+        except Exception as e:
+            self.file_failed.emit(str(e))
+            return
+        self.file_ready.emit(paragraphs, path)
+
+    def _apply_file_parsed(self, paragraphs: list[str], path: Path) -> None:
+        """Main-thread slot for ``file_ready``: apply the parse result."""
+        self._paragraphs = paragraphs
+        self._total = len(paragraphs)
+        self._filename = path.name
+        self._state = State.IDLE
+        self._spinner_active = False
+        self._media.stop()
+        self._cleanup_temp()
+        self.state_changed.emit()
+        self._prefetch_first()
+
+    def _on_file_load_failed(self, message: str) -> None:
+        """Main-thread slot for ``file_failed``: back to empty, no paragraphs."""
+        self._paragraphs = []
+        self._total = 0
+        self._current_idx = 0
+        self._state = State.IDLE
+        self._spinner_active = False
+        self._cleanup_temp()
+        self.state_changed.emit()
+
     def _on_media_status(self, status: int) -> None:
         """Handle QMediaPlayer mediaStatusChanged signal."""
         if status == QMediaPlayer.EndOfMedia:
             self._auto_advance()
         elif status == QMediaPlayer.NoMedia and self._state == State.PLAYING:
             self._state = State.IDLE
-
-    def playback_error(self) -> bool:
-        """True if QMediaPlayer reports an error (no GStreamer backend, etc.)."""
-        return self._media.error() != QMediaPlayer.NoError
+            self.state_changed.emit()
 
     def _auto_advance(self) -> None:
         """Advance to next paragraph on EndOfMedia (unless paused)."""
@@ -270,6 +330,7 @@ class Player(QObject):
             self._load_and_play(self._current_idx)
         else:
             self._state = State.IDLE
+            self.state_changed.emit()
 
     def controls_enabled(self) -> bool:
         return self._total > 0
@@ -292,10 +353,6 @@ class Player(QObject):
     def repeat_enabled(self) -> bool:
         return self._total > 0
 
-    def shutdown(self) -> None:
-        """Release the synthesis pool (called from the window's closeEvent)."""
-        _executor.shutdown(wait=False)
-
     def save_all(self, voice: str, progress_cb: Callable[[int], None] | None = None) -> bytes:
         """Synthesize every paragraph and return the concatenated MP3.
 
@@ -307,5 +364,6 @@ class Player(QObject):
             progress_cb(100)
         return data
 
-
-_executor = ThreadPoolExecutor(max_workers=2)
+    def shutdown(self) -> None:
+        """Release the synthesis pool (called from the window's closeEvent)."""
+        self._executor.shutdown(wait=False)
