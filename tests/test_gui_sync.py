@@ -134,6 +134,31 @@ class TestParseFailure:
         assert not w._save_btn.isEnabled()
 
 
+class TestOpenButton:
+    def test_open_button_triggers_load(self, qapp, monkeypatch):
+        """Toolbar Open button must open the dialog and start a background load."""
+        from PyQt5.QtWidgets import QFileDialog
+
+        _strings.set_lang(_strings.DEFAULT_LANG)
+        engine = MagicMock()
+        engine.load_file.return_value = ["One.", "Two."]
+        p = _player_mod.Player(engine)
+        w = _window_mod.Window(p, _theme_mod.load(), VOICES)
+        w.build()
+        assert w._btn_open is not None
+        assert w._btn_open.text() == _strings.t("toolbar.chooseFile")
+        assert w._btn_open.isEnabled()
+
+        monkeypatch.setattr(
+            QFileDialog, "getOpenFileName",
+            lambda *a, **k: (str(Path(__file__)), ""),
+        )
+        w._btn_open.click()
+        _pump(qapp, lambda: p.total == 2)
+        assert p.filename == Path(__file__).name
+        assert not w._empty_state.isVisible()
+
+
 class TestSaveButton:
     def test_save_disabled_before_load(self, qapp):
         _strings.set_lang(_strings.DEFAULT_LANG)

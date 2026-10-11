@@ -1,6 +1,6 @@
 """Qt window: QMainWindow with top toolbar, middle reader, bottom controls.
 
-Adaptive layout: below width/height thresholds the toolbar collapses to icon-only
+Adaptive layout: below width thresholds the toolbar collapses to icon-only
 and player controls switch to a single compact row. All breakpoints live in
 :data:`BREAKPOINTS` for easy tuning.
 """
@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 
-from PyQt5.QtCore import QSize, pyqtSignal
+from PyQt5.QtCore import QSize, Qt, pyqtSignal
 from PyQt5.QtWidgets import (
     QComboBox,
     QFileDialog,
@@ -48,7 +48,6 @@ def _unwrap(future):
 class BREAKPOINTS:
     toolbar_icon_only_below: int = 560  # px width → hide toolbar text labels
     controls_single_row_below: int = 520  # px width → single-row controls
-    controls_compact_below: int = 400  # px height → hide keyboard hint
 
 
 class _MainWindow(QMainWindow):
@@ -95,6 +94,7 @@ class Window:
         self._btn_stop = None
         self._btn_next = None
         self._btn_repeat = None
+        self._btn_open = None
         self._voice_combo = None
         self._file_name_label = None
         self._save_btn = None
@@ -159,6 +159,11 @@ class Window:
         bar.setObjectName("TopBar")
         bar.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
+        self._btn_open = QPushButton(_strings.t("toolbar.chooseFile"))
+        self._btn_open.setObjectName("OpenButton")
+        self._btn_open.setToolTip(_strings.t("toolbar.chooseFileAria"))
+        self._btn_open.clicked.connect(self.open_file)
+
         self._file_name_label = QLabel("")
         self._file_name_label.setObjectName("FileNameLabel")
         self._file_name_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
@@ -171,6 +176,7 @@ class Window:
         self._save_btn.setToolTip(_strings.t("toolbar.saveAria"))
 
         row = QHBoxLayout(bar)
+        row.addWidget(self._btn_open)
         row.addWidget(self._file_name_label)
         row.addWidget(self._voice_combo)
         row.addWidget(self._save_btn)
@@ -260,12 +266,16 @@ class Window:
         )
         self._kbd_hint.setObjectName("KeyboardHint")
 
-        row = QHBoxLayout(bar)
+        row = QHBoxLayout()
         row.addWidget(self._progress_bar)
         row.addWidget(self._counter_label)
         for btn in self._control_buttons():
             row.addWidget(btn)
-        row.addWidget(self._kbd_hint)
+
+        outer = QVBoxLayout(bar)
+        outer.addLayout(row)
+        self._kbd_hint.setAlignment(Qt.AlignHCenter)
+        outer.addWidget(self._kbd_hint)
 
         self._bottom_bar = bar
 
@@ -338,6 +348,7 @@ class Window:
                 self._progress_bar.setValue(0)
             if self._counter_label:
                 self._counter_label.setText(_strings.t("progress.counterEmpty"))
+                self._counter_label.adjustSize()
             return
 
         pct = int(p.current_idx / max(p.total - 1, 1) * 100)
@@ -348,6 +359,7 @@ class Window:
             self._counter_label.setText(
                 _strings.t("progress.counter", current=p.current_idx + 1, total=p.total)
             )
+            self._counter_label.adjustSize()
 
     def sync_controls(self) -> None:
         """Enable/disable player buttons based on state."""
@@ -399,14 +411,11 @@ class Window:
         if self._main is None:
             return
         w = self._main.width()
-        h = self._main.height()
 
         icon_only = w < BREAKPOINTS.toolbar_icon_only_below
         single_row = w < BREAKPOINTS.controls_single_row_below
-        hide_hint = h < BREAKPOINTS.controls_compact_below
 
-        if self._kbd_hint:
-            self._kbd_hint.setVisible(not hide_hint)
+        self._sync_hint(w)
 
         if icon_only:
             self._collapse_toolbar()
@@ -426,6 +435,15 @@ class Window:
         """Restore toolbar text labels."""
         if self._file_name_label:
             self._file_name_label.setVisible(True)
+
+    def _sync_hint(self, w: int) -> None:
+        """Hide the keyboard hint row when it no longer fits the bar width."""
+        if self._kbd_hint is None:
+            return
+        margins = self._bottom_bar.layout().contentsMargins()
+        self._kbd_hint.setVisible(
+            w - margins.left() - margins.right() >= self._kbd_hint.sizeHint().width()
+        )
 
     def _collapse_controls(self) -> None:
         """Cap player controls so all six fit one row."""
