@@ -159,6 +159,28 @@ class TestOpenButton:
         assert not w._empty_state.isVisible()
 
 
+class TestControlButtons:
+    def test_control_buttons_wired(self, gui):
+        """All six player controls must reach the player (web wires the same set)."""
+        w, p = gui
+        for name in ("play", "pause", "stop", "next", "prev", "repeat", "go_to"):
+            setattr(p, name, MagicMock())
+        for btn in w._control_buttons():
+            btn.setEnabled(True)
+        w._btn_start.click()
+        w._btn_prev.click()
+        w._btn_play.click()
+        w._btn_stop.click()
+        w._btn_next.click()
+        w._btn_repeat.click()
+        p.go_to.assert_called_once_with(0)
+        p.play.assert_called_once()
+        p.stop.assert_called_once()
+        p.prev.assert_called_once()
+        p.next.assert_called_once()
+        p.repeat.assert_called_once()
+
+
 class TestSaveButton:
     def test_save_disabled_before_load(self, qapp):
         _strings.set_lang(_strings.DEFAULT_LANG)

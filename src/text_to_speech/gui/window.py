@@ -277,6 +277,13 @@ class Window:
         self._kbd_hint.setAlignment(Qt.AlignHCenter)
         outer.addWidget(self._kbd_hint)
 
+        self._btn_start.clicked.connect(lambda: self._player.go_to(0))
+        self._btn_prev.clicked.connect(self._prev)
+        self._btn_play.clicked.connect(self._toggle_play_pause)
+        self._btn_stop.clicked.connect(lambda: self._player.stop())
+        self._btn_next.clicked.connect(self._next)
+        self._btn_repeat.clicked.connect(self._repeat)
+
         self._bottom_bar = bar
 
     def _control_buttons(self) -> tuple[QPushButton, ...]:
